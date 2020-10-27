@@ -43,7 +43,7 @@ for SNR in arg.sim.SNR:
     a = a + 1
     print('\nresults from NN: columns show themean, the RMSE/mean and the Spearman coef [DvDp,Dvf,fvDp] \n'
           'the rows show D, f and D*\n'
-          'and the different matixes repressent the different SNR levels {}:'.format(hp.sim.snr))
+          'and the different matixes repressent the different SNR levels {}:'.format(arg.sim.SNR))
     print(matNN)
     # if repeat is higher than 1, then print stability (CVNET)
     if arg.sim.repeats > 1:
