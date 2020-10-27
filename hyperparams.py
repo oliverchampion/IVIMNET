@@ -79,7 +79,7 @@ class net_pars:
             self.parallel = True # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
             #### only if sigmoid constraint is used!
-            self.cons_min = [-0.0001, -0.05, -0.05, 0.76]  # Dt, Fp, Ds, S0
+            self.cons_min = [-0.0001, -0.05, -0.05, 0.7]  # Dt, Fp, Ds, S0
             self.cons_max = [0.005, 0.7, 0.3, 1.3]  # Dt, Fp, Ds, S0
             ####
             self.fitS0 = False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.

@@ -102,7 +102,7 @@ def sim(SNR, arg):
         if arg.sim.repeats > 1:
             matNN = np.zeros([arg.sim.repeats, 3, 3])
             for aa in range(arg.sim.repeats):
-                # determine Errors and Spearman Rank
+                # determine errors and Spearman Rank
                 matNN[aa] = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsNN[aa])
             matNN = np.mean(matNN, axis=0)
             # calculate Stability Factor
@@ -128,10 +128,10 @@ def sim(SNR, arg):
         elapsed_time = time.time() - start_time
         print('\ntime elapsed for fit: {}\n'.format(elapsed_time))
         print('results for fit')
-        # calculate and print the errors and Spearman Rank
+        # determine errors and Spearman Rank
         matlsq = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsf)
         # del paramsf, IVIM_signal_noisy
-        # Show figures if requested
+        # show figures if requested
         plots(arg, D, Dp, f, paramsf)
         return matlsq, matNN, stability
     else:
@@ -150,7 +150,7 @@ def plots(arg,D,Dp,f,params):
         plt.xlabel('Dt')
         plt.ylabel('Dp')
         plt.gcf()
-        # plt.savefig('inputDtDp.png')
+        # plt.savefig('plots/inputDtDp.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -160,7 +160,7 @@ def plots(arg,D,Dp,f,params):
         plt.xlabel('f')
         plt.ylabel('Dp')
         plt.gcf()
-        # plt.savefig('inputfDp.png')
+        # plt.savefig('plots/inputfDp.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -170,7 +170,7 @@ def plots(arg,D,Dp,f,params):
         plt.xlabel('Dt')
         plt.ylabel('f')
         plt.gcf()
-        # plt.savefig('inputDtf.png')
+        # plt.savefig('plots/inputDtf.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -180,7 +180,7 @@ def plots(arg,D,Dp,f,params):
         plt.xlabel('Dt')
         plt.ylabel('Dp')
         plt.gcf()
-        # plt.savefig('NNDtDp.png')
+        # plt.savefig('plots/DtDp.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -190,7 +190,7 @@ def plots(arg,D,Dp,f,params):
         plt.xlabel('f')
         plt.ylabel('Dp')
         plt.gcf()
-        # plt.savefig('NNfDp.png')
+        # plt.savefig('plots/fDp.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -200,7 +200,7 @@ def plots(arg,D,Dp,f,params):
         plt.xlabel('Dt')
         plt.ylabel('f')
         plt.gcf()
-        # plt.savefig('NNDtf.png')
+        # plt.savefig('plots/Dtf.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -210,7 +210,7 @@ def plots(arg,D,Dp,f,params):
         plt.ylabel('DpNN')
         plt.xlabel('Dpin')
         plt.gcf()
-        # plt.savefig('DpNNDpin.png')
+        # plt.savefig('plots/DpoutDpin.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -220,7 +220,7 @@ def plots(arg,D,Dp,f,params):
         plt.ylabel('DtNN')
         plt.xlabel('Dtin')
         plt.gcf()
-        # plt.savefig('DtNNDtin.png')
+        # plt.savefig('plots/DtoutDtin.png')
         plt.ion()
         plt.show()
         plt.figure()
@@ -230,7 +230,7 @@ def plots(arg,D,Dp,f,params):
         plt.ylabel('fNN')
         plt.xlabel('fin')
         plt.gcf()
-        # plt.savefig('fNNfin.png')
+        # plt.savefig('plots/foutfin.png')
         plt.ion()
         plt.show()
         plt.close('all')
@@ -357,15 +357,15 @@ def print_errors(D, f, Dp, params):
 
     rmse_Dp = np.sqrt(np.square(np.subtract(Dp, params[2])).mean())
 
-    # Initialise Spearman Rank matrix
+    # initialise Spearman Rank matrix
     Spearman = np.zeros([3, 2])
-    # Calculate Spearman Rank correlation coefficient and p-value
+    # calculate Spearman Rank correlation coefficient and p-value
     Spearman[0, 0], Spearman[0, 1] = scipy.spearmanr(params[0], params[2])  # DvDp
     Spearman[1, 0], Spearman[1, 1] = scipy.spearmanr(params[0], params[1])  # Dvf
     Spearman[2, 0], Spearman[2, 1] = scipy.spearmanr(params[1], params[2])  # fvDp
     # If spearman is nan, set as 1 (because of constant estimated IVIM parameters)
     Spearman[np.isnan(Spearman)] = 1
-    # Take absolute Spearman
+    # take absolute Spearman
     Spearman = np.absolute(Spearman)
     del params
 
@@ -387,7 +387,7 @@ def print_errors(D, f, Dp, params):
 
 
 def sim_signal_predict(arg, SNR):
-    # Init Randomstate
+    # init randomstate
     rg = np.random.RandomState(123)
     ## define parameter values in the three regions
     S0_region0, S0_region1, S0_region2 = 1, 1, 1
@@ -472,19 +472,19 @@ def sim_signal_predict(arg, SNR):
     plt.show()
     plt.savefig('plots/plot_dwi_with_noise_param_{snr}_{method}.png'.format(snr=SNR, method=arg.save_name))
 
-    # Reshape image
+    # reshape image
     dwi_image_long = np.reshape(dwi_image_noise_norm, (sx * sy, sb))
     return dwi_image_long, Dt_truth, Fp_truth, Dp_truth
 
 
 def plot_example1(paramsNN, paramsf, Dt_truth, Fp_truth, Dp_truth, arg, SNR):
-    # Initialise figure
+    # initialise figure
     sx, sy, sb = 100, 100, len(arg.sim.bvalues)
     if arg.fit.do_fit:
         fig, ax = plt.subplots(3, 3, figsize=(20, 20))
     else:
         fig, ax = plt.subplots(2, 3, figsize=(20, 20))
-    # Fill Figure with values
+    # fill Figure with values
     Dt_t_plot = ax[0, 0].imshow(Dt_truth, cmap='gray', clim=(0, 0.003))
     ax[0, 0].set_title('Dt, ground truth')
     ax[0, 0].set_xticks([])
@@ -497,6 +497,13 @@ def plot_example1(paramsNN, paramsf, Dt_truth, Fp_truth, Dp_truth, arg, SNR):
     ax[1, 0].set_yticks([])
     fig.colorbar(Dt_plot, ax=ax[1, 0], fraction=0.046, pad=0.04)
 
+    if arg.fit.do_fit:
+        Dt_fit_plot = ax[2, 0].imshow(np.reshape(paramsf[0], (sx, sy)), cmap='gray', clim=(0, 0.003))
+        ax[2, 0].set_title('Dt, fit {fitmethod}'.format(fitmethod=arg.fit.method))
+        ax[2, 0].set_xticks([])
+        ax[2, 0].set_yticks([])
+        fig.colorbar(Dt_fit_plot, ax=ax[2, 0], fraction=0.046, pad=0.04)
+
     Fp_t_plot = ax[0, 1].imshow(Fp_truth, cmap='gray', clim=(0, 0.5))
     ax[0, 1].set_title('Fp, ground truth')
     ax[0, 1].set_xticks([])
@@ -508,6 +515,13 @@ def plot_example1(paramsNN, paramsf, Dt_truth, Fp_truth, Dp_truth, arg, SNR):
     ax[1, 1].set_xticks([])
     ax[1, 1].set_yticks([])
     fig.colorbar(Fp_plot, ax=ax[1, 1], fraction=0.046, pad=0.04)
+    
+    if arg.fit.do_fit:
+        Fp_fit_plot = ax[2, 1].imshow(np.reshape(paramsf[1], (sx, sy)), cmap='gray', clim=(0, 0.5))
+        ax[2, 1].set_title('f, fit {fitmethod}'.format(fitmethod=arg.fit.method))
+        ax[2, 1].set_xticks([])
+        ax[2, 1].set_yticks([])
+        fig.colorbar(Fp_fit_plot, ax=ax[2, 1], fraction=0.046, pad=0.04)
 
     Dp_t_plot = ax[0, 2].imshow(Dp_truth, cmap='gray', clim=(0.01, 0.1))
     ax[0, 2].set_title('Dp, ground truth')
@@ -520,21 +534,8 @@ def plot_example1(paramsNN, paramsf, Dt_truth, Fp_truth, Dp_truth, arg, SNR):
     ax[1, 2].set_xticks([])
     ax[1, 2].set_yticks([])
     fig.colorbar(Dp_plot, ax=ax[1, 2], fraction=0.046, pad=0.04)
-    plt.savefig('plots/plot_imshow_IVIM_param_{snr}_nn_{save}.png'.format(snr=SNR, save=arg.save_name))
-
+    
     if arg.fit.do_fit:
-        Dt_fit_plot = ax[2, 0].imshow(np.reshape(paramsf[0], (sx, sy)), cmap='gray', clim=(0, 0.003))
-        ax[2, 0].set_title('Dt, fit {fitmethod}'.format(fitmethod=arg.fit.method))
-        ax[2, 0].set_xticks([])
-        ax[2, 0].set_yticks([])
-        fig.colorbar(Dt_fit_plot, ax=ax[2, 0], fraction=0.046, pad=0.04)
-
-        Fp_fit_plot = ax[2, 1].imshow(np.reshape(paramsf[1], (sx, sy)), cmap='gray', clim=(0, 0.5))
-        ax[2, 1].set_title('f, fit {fitmethod}'.format(fitmethod=arg.fit.method))
-        ax[2, 1].set_xticks([])
-        ax[2, 1].set_yticks([])
-        fig.colorbar(Fp_fit_plot, ax=ax[2, 2], fraction=0.046, pad=0.04)
-
         Dp_fit_plot = ax[2, 2].imshow(np.reshape(paramsf[2], (sx, sy)), cmap='gray', clim=(0.01, 0.1))
         ax[2, 2].set_title('Dp, fit {fitmethod}'.format(fitmethod=arg.fit.method))
         ax[2, 2].set_xticks([])
@@ -543,4 +544,4 @@ def plot_example1(paramsNN, paramsf, Dt_truth, Fp_truth, Dp_truth, arg, SNR):
 
         plt.subplots_adjust(hspace=0.2)
         plt.show()
-        plt.savefig('plots/plot_imshow_IVIM_param_{snr}_lsq_{save}.png'.format(snr=SNR, save=arg.save_name))
+    plt.savefig('plots/plot_imshow_IVIM_param_{snr}.png'.format(snr=SNR, save=arg.save_name))
