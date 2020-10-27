@@ -27,7 +27,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import random
-import hyperparams as hp
+import os
 
 
 def sim(SNR, arg):
@@ -55,7 +55,7 @@ def sim(SNR, arg):
     :return stability: a 1D array with the stability of D, f and D* as a fraction of their mean value.
     Stability is only relevant for neural networks and is calculated from the repeated network training.
     """
-    arg = hp.checkarg(arg)
+    arg = deep.checkarg(arg)
     # this simulated the signal
     IVIM_signal_noisy, D, f, Dp = sim_signal(SNR, arg.sim.bvalues, sims=arg.sim.sims, Dmin=arg.sim.range[0][0],
                                              Dmax=arg.sim.range[1][0], fmin=arg.sim.range[0][1],
@@ -258,7 +258,7 @@ def augmented_signal(data, bvalues, arg, fraction=0.3, Dmin=0.3 / 1000, Dmax=4.0
 
     :return IVIM_signal_noisy: 2D array with augmented noisy IVIM signal (x-axis is sims long, y-axis is len(b-values) long)
     """
-    arg = hp.checkarg(arg)
+    arg = deep.checkarg(arg)
     indx = np.argsort(bvalues.copy())
     sdata = np.shape(data)[0]
     # train
@@ -436,6 +436,8 @@ def sim_signal_predict(arg, SNR):
             b_id += 1
     plt.subplots_adjust(hspace=0)
     plt.show()
+    if not os.path.isdir('plots'):
+        os.makedirs('plots')
     plt.savefig('plots/plot_dwi_without_noise_param_{snr}_{method}.png'.format(snr=SNR, method=arg.save_name))
 
     # Initialise dwi noise image

@@ -25,6 +25,7 @@ from scipy import stats
 from joblib import Parallel, delayed
 import tqdm
 import hyperparams as hp
+import warnings
 
 
 def fit_dats(bvalues, dw_data, arg, savename=None):
@@ -46,7 +47,7 @@ def fit_dats(bvalues, dw_data, arg, savename=None):
     :return paramslsq: 2D array containing the fit parameters D, f (Fp), D* (Dp) and, optionally, S0, for each voxel
     """
     # Checking completeness of arg and adding missing values as defaults
-    arg = hp.checkarg_lsq(arg)
+    arg = checkarg_lsq(arg)
     if arg.do_fit:
         if not arg.load_lsq:
             # select fit to be run
@@ -467,7 +468,7 @@ def fit_bayesian_array(bvalues, dw_data, paramslsq, arg):
     :return Dp: Array with Dp in each voxel
     :return S0: Array with S0 in each voxel
     """
-    arg = hp.checkarg_lsq(arg)
+    arg = checkarg_lsq(arg)
     # fill out missing args
     Dt0, Fp0, Dp0, S00 = paramslsq
     # determine prior
@@ -546,3 +547,25 @@ def fit_bayesian(bvalues, dw_data, neg_log_prior, x0=[0.001, 0.2, 0.05], fitS0=T
         # if fit fails, return regular lsq-fit result
         # print('a bayes fit fialed')
         return fit_least_squares(bvalues, dw_data, S0_output=True)
+
+
+def checkarg_lsq(arg):
+    if not hasattr(arg, 'method'):
+        warnings.warn('arg.fit.method not defined. Using default of ''lsq''')
+        arg.method='lsq'
+    if not hasattr(arg, 'do_fit'):
+        warnings.warn('arg.fit.do_fit not defined. Using default of True')
+        arg.do_fit=True
+    if not hasattr(arg, 'load_lsq'):
+        warnings.warn('arg.fit.load_lsq not defined. Using default of False')
+        arg.load_lsq=False
+    if not hasattr(arg, 'fitS0'):
+        warnings.warn('arg.fit.fitS0 not defined. Using default of False')
+        arg.fitS0=False
+    if not hasattr(arg, 'jobs'):
+        warnings.warn('arg.fit.jobs not defined. Using default of 4')
+        arg.jobs = 4
+    if not hasattr(arg, 'bounds'):
+        warnings.warn('arg.fit.bounds not defined. Using default of ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3])')
+        arg.bounds = ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3]) #Dt, Fp, Ds, S0
+    return arg

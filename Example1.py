@@ -25,7 +25,8 @@ import torch
 import fitting_algorithms as fit
 
 # Import parameters
-arg=hp_example_1()
+arg = hp_example_1()
+arg = deep.checkarg(arg)
 print(arg.save_name)
 for SNR in arg.sim.SNR:
     # this simulated the signal

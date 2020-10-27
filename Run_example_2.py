@@ -19,12 +19,13 @@ joblib
 # import
 import numpy as np
 import simulations as sim
+import deep
 import hyperparams as hp
-from hyperparams_example import hyperparams as hp_example
+from hyperparams import hyperparams as hp_example
 
 # load hyperparameter
-arg = hp_example('optim')
-arg = hp.checkarg_lsq(arg)
+arg = hp_example()
+arg = deep.checkarg(arg)
 
 matlsq = np.zeros([len(arg.sim.SNR), 3, 3])
 matNN = np.zeros([len(arg.sim.SNR), 3, 3])
@@ -42,7 +43,7 @@ for SNR in arg.sim.SNR:
     a = a + 1
     print('\nresults from NN: columns show themean, the RMSE/mean and the Spearman coef [DvDp,Dvf,fvDp] \n'
           'the rows show D, f and D*\n'
-          'and the different matixes repressent the different SNR levels:')
+          'and the different matixes repressent the different SNR levels {}:'.format(hp.sim.snr))
     print(matNN)
     # if repeat is higher than 1, then print stability (CVNET)
     if arg.sim.repeats > 1:

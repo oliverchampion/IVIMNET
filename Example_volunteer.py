@@ -27,6 +27,8 @@ from fitting_algorithms import fit_dats
 from hyperparams import hyperparams as hp
 
 arg = hp()
+arg = deep.checkarg(arg)
+
 testdata = False
 
 ### folder patient data
