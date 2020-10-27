@@ -20,11 +20,10 @@ joblib
 import numpy as np
 import simulations as sim
 import hyperparams as hp
-from hyperparams_example import hyperparams as hp_example
+from hyperparams import hyperparams as hp_example_2
 
-# load hyperparameter
-arg = hp_example('optim')
-arg = hp.checkarg_lsq(arg)
+# load hyperparameters
+arg = hp_example_2()
 
 matlsq = np.zeros([len(arg.sim.SNR), 3, 3])
 matNN = np.zeros([len(arg.sim.SNR), 3, 3])
@@ -40,9 +39,9 @@ for SNR in arg.sim.SNR:
     else:
         matNN[a, :, :], stability[a, :] = sim.sim(SNR, arg)
     a = a + 1
-    print('\nresults from NN: columns show themean, the RMSE/mean and the Spearman coef [DvDp,Dvf,fvDp] \n'
+    print('\nresults from NN: columns show the mean, the RMSE/mean and the Spearman coef [DvDp,Dvf,fvDp] \n'
           'the rows show D, f and D*\n'
-          'and the different matixes repressent the different SNR levels:')
+          'and the different matixes represent the different SNR levels:')
     print(matNN)
     # if repeat is higher than 1, then print stability (CVNET)
     if arg.sim.repeats > 1:

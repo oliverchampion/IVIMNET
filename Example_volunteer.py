@@ -24,9 +24,9 @@ import numpy as np
 import deep
 import torch
 from fitting_algorithms import fit_dats
-from hyperparams import hyperparams as hp
+from hyperparams import hyperparams as hp_volunteer
 
-arg = hp()
+arg = hp_volunteer()
 testdata = False
 
 ### folder patient data

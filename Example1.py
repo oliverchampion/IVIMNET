@@ -28,22 +28,22 @@ import fitting_algorithms as fit
 arg=hp_example_1()
 print(arg.save_name)
 for SNR in arg.sim.SNR:
-    # this simulated the signal
+    # this simulates the signal
     IVIM_signal_noisy, D, f, Dp = sim.sim_signal(SNR, arg.sim.bvalues, sims=arg.sim.sims, Dmin=arg.sim.range[0][0],
                                              Dmax=arg.sim.range[1][0], fmin=arg.sim.range[0][1],
                                              fmax=arg.sim.range[1][1], Dsmin=arg.sim.range[0][2],
                                              Dsmax=arg.sim.range[1][2], rician=arg.sim.rician)
-    # loop over repeats
+    
     start_time = time.time()
     # train network
     net = deep.learn_IVIM(IVIM_signal_noisy, arg.sim.bvalues, arg)
     elapsed_time = time.time() - start_time
     print('\ntime elapsed for training: {}\n'.format(elapsed_time))
 
-    # Simulate IVIM signal for prediction
+    # simulate IVIM signal for prediction
     [dwi_image_long, Dt_truth, Fp_truth, Dp_truth] = sim.sim_signal_predict(arg, SNR)
 
-    # Predict
+    # predict
     start_time = time.time()
     paramsNN = deep.predict_IVIM(dwi_image_long, arg.sim.bvalues, net, arg)
     elapsed_time = time.time() - start_time
