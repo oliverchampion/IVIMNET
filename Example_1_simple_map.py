@@ -17,12 +17,12 @@ matplotlib
 scipy
 joblib
 """
-import simulations as sim
+import IVIMNET.simulations as sim
 from hyperparams import hyperparams as hp_example_1
-import deep as deep
+import IVIMNET.deep as deep
 import time
 import torch
-import fitting_algorithms as fit
+import IVIMNET.fitting_algorithms as fit
 
 # Import parameters
 arg = hp_example_1()

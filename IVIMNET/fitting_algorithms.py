@@ -24,7 +24,6 @@ import numpy as np
 from scipy import stats
 from joblib import Parallel, delayed
 import tqdm
-import hyperparams as hp
 import warnings
 
 

@@ -18,8 +18,8 @@ joblib
 
 # import libraries
 import numpy as np
-import deep as deep
-import fitting_algorithms as fit
+import IVIMNET.deep as deep
+import IVIMNET.fitting_algorithms as fit
 import time
 import scipy.stats as scipy
 import torch

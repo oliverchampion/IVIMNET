@@ -21,9 +21,9 @@ import os
 import time
 import nibabel as nib
 import numpy as np
-import deep
+import IVIMNET.deep as deep
 import torch
-from fitting_algorithms import fit_dats
+from IVIMNET.fitting_algorithms import fit_dats
 from hyperparams import hyperparams as hp
 
 arg = hp()

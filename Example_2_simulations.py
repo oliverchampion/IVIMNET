@@ -18,9 +18,8 @@ joblib
 
 # import
 import numpy as np
-import simulations as sim
-import deep
-import hyperparams as hp
+import IVIMNET.simulations as sim
+import IVIMNET.deep as deep
 from hyperparams import hyperparams as hp_example
 
 # load hyperparameter

@@ -28,7 +28,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 import os
-import fitting_algorithms as fit
+import IVIMNET.fitting_algorithms as fit
 from joblib import Parallel, delayed
 import copy
 import warnings

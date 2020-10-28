@@ -93,7 +93,7 @@ class lsqfit:
         self.do_fit = True # skip lsq fitting
         self.load_lsq = False # load the last results for lsq fit
         self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 in the least squares fit.
-        self.jobs = 2 # number of parallel jobs. If set to 1, no parallel computing is used
+        self.jobs = 4 # number of parallel jobs. If set to 1, no parallel computing is used
         self.bounds = ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3]) #Dt, Fp, Ds, S0
 
 
@@ -102,7 +102,7 @@ class sim:
         self.bvalues = np.array([0, 5, 10, 20, 30, 40, 60, 150, 300, 500, 700]) # array of b-values
         self.SNR = [15, 20, 30, 50] # the SNRs to simulate at
         self.sims = 1000000 # number of simulations to run
-        self.num_samples_eval = 100000 # number of simualtiosn te evaluate. This can be lower than the number run. Particularly to save time when fitting. More simulations help with generating sufficient data for the neural network
+        self.num_samples_eval = 10000 # number of simualtiosn te evaluate. This can be lower than the number run. Particularly to save time when fitting. More simulations help with generating sufficient data for the neural network
         self.repeats = 1 # this is the number of repeats for simulations
         self.rician = False # add rician noise to simulations; if false, gaussian noise is added instead
         self.range = ([0.0005, 0.05, 0.01],
