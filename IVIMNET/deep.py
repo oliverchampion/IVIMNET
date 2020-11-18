@@ -7,7 +7,7 @@ Built on code by Sebastiano Barbieri: https://github.com/sebbarb/deep_ivim
 
 Code is uploaded as part of our publication in MRM (Kaandorp et al. Improved physics-informed deep learning of the intravoxel-incoherent motion model: accurate, unique and consistent. MRM 2021)
 If this code was useful, please cite:
-http://arxiv.org/abs/1903.00095
+https://doi.org/10.1002/mrm.27910
 
 requirements:
 numpy

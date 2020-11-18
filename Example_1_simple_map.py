@@ -6,8 +6,6 @@ oliver.gurney.champion@gmail.com / o.j.gurney-champion@amsterdamumc.nl
 https://www.github.com/ochampion
 
 Code is uploaded as part of our publication in MRM (Kaandorp et al. Improved unsupervised physics-informed deep learning for intravoxel-incoherent motion modeling and evaluation in pancreatic cancer patients. MRM 2021)
-If this code was useful, please cite:
-http://arxiv.org/abs/1903.00095
 
 requirements:
 numpy
