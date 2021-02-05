@@ -34,6 +34,7 @@ import copy
 import warnings
 
 # Define the neural network.
+
 class Net(nn.Module):
     def __init__(self, bvalues, net_pars):
         """
@@ -103,7 +104,7 @@ class Net(nn.Module):
                     self.fc_layers4.extend([nn.Dropout(self.net_pars.dropout)])
         # Final layer yielding output, with either 3 (fix S0) or 4 outputs of a single network, or 1 output
         # per network in case of parallel networks.
-        if self.net_pars.parallel:
+        if self.net_pars.dropout is not 0 and i is not (self.net_pars.depth - 1):
             self.encoder = nn.Sequential(*self.fc_layers, nn.Linear(self.net_pars.width, self.outs))
             self.encoder2 = nn.Sequential(*self.fc_layers2, nn.Linear(self.net_pars.width, self.outs))
             self.encoder3 = nn.Sequential(*self.fc_layers3, nn.Linear(self.net_pars.width, self.outs))
@@ -287,8 +288,6 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
         net.train()
         running_loss_train = 0.
         running_loss_val = 0.
-        losstotcon = 0.
-        maxloss = 0.
         for i, X_batch in enumerate(tqdm(trainloader, position=0, leave=True, total=totalit), 0):
             if i > totalit:
                 # have a maximum number of batches per epoch to ensure regular updates of whether we are improving
@@ -310,8 +309,6 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
             optimizer.step()
             # total loss and determine max loss over all batches
             running_loss_train += loss.item()
-            if loss.item() > maxloss:
-                maxloss = loss.item()
         # show some figures if desired, to show whether there is a correlation between Dp and f
         if arg.fig:
             plt.figure(3)
@@ -333,6 +330,7 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
             X_pred[X_pred > 3] = 3
             # validation loss
             loss = criterion(X_pred, X_batch)
+            print(i)
             running_loss_val += loss.item()
         # scale losses
         running_loss_train = running_loss_train / totalit
@@ -503,6 +501,7 @@ def plot_progress(X_batch, X_pred, bvalues, loss_train, loss_val, arg):
     X_pred = X_pred[:, inds1]
     bvalues = bvalues[inds1]
     if arg.fig:
+        matplotlib.use('TkAgg')
         plt.close('all')
         fig, axs = plt.subplots(2, 2)
         axs[0, 0].plot(bvalues, X_batch.data[0], 'o')
@@ -517,8 +516,9 @@ def plot_progress(X_batch, X_pred, bvalues, loss_train, loss_val, arg):
         axs[1, 1].plot(bvalues, X_batch.data[3], 'o')
         axs[1, 1].plot(bvalues, X_pred.data[3])
         axs[1, 1].set_ylim(min(X_batch.data[3]) - 0.3, 1.2 * max(X_batch.data[3]))
+        plt.legend(('data', 'estimate from network'))
         for ax in axs.flat:
-            ax.set(xlabel='b-value (s/mm2)', ylabel='signal (a.u.)')
+            ax.set(xlabel='b-value (s/mm2)', ylabel='normalised signal')
         for ax in axs.flat:
             ax.label_outer()
         plt.ion()
@@ -529,8 +529,9 @@ def plot_progress(X_batch, X_pred, bvalues, loss_train, loss_val, arg):
         plt.plot(loss_train)
         plt.plot(loss_val)
         plt.yscale("log")
-        plt.xlabel('epoch')
+        plt.xlabel('epoch #')
         plt.ylabel('loss')
+        plt.legend(('training loss', 'validation loss (after training epoch)'))
         plt.ion()
         plt.show()
         plt.pause(0.001)

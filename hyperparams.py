@@ -44,18 +44,18 @@ class train_pars:
 class net_pars:
     def __init__(self,nets):
         # select a network setting
-        if (nets == 'optim') or (nets == 'optim_adsig') :
+        if (nets == 'optim'):
             # the optimized network settings
             self.dropout = 0.1 #0.0/0.1 chose how much dropout one likes. 0=no dropout; internet says roughly 20% (0.20) is good, although it also states that smaller networks might desire smaller amount of dropout
             self.batch_norm = True # False/True turns on batch normalistion
-            self.parallel = True # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+            self.parallel = False # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
             #### only if sigmoid constraint is used!
-            self.cons_min = [-0.0001, -0.05, -0.05, 0.7]  # Dt, Fp, Ds, S0
-            self.cons_max = [0.005, 0.7, 0.3, 1.3]  # Dt, Fp, Ds, S0
+            self.cons_min = [0, 0, 0.005, 0.5]  # Dt, Fp, Ds, S0
+            self.cons_max = [0.005, 0.7, 0.2, 2.5]  # Dt, Fp, Ds, S0
             ####
-            self.fitS0=True # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
-            self.depth = 4 # number of layers
+            self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
+            self.depth = 3 # number of layers
             self.width = 0 # new option that determines network width. Putting to 0 makes it as wide as the number of b-values
         elif nets == 'orig':
             # as summarized in Table 1 from the main article for the original network
@@ -64,11 +64,11 @@ class net_pars:
             self.parallel = False  # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'abs' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
             #### only if sigmoid constraint is used!
-            self.cons_min = [-0.0001, -0.05, -0.05, 0.7]  # Dt, Fp, Ds, S0
-            self.cons_max = [0.005, 0.7, 0.3, 1.3]  # Dt, Fp, Ds, S0
+            self.cons_min = [0, 0, 0.005, 0.5]  # Dt, Fp, Ds, S0
+            self.cons_max = [0.005, 0.7, 0.2, 2.5]  # Dt, Fp, Ds, S0
             ####
-            self.fitS0=False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
-            self.depth=3 # number of layers
+            self.fitS0 = False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
+            self.depth = 3 # number of layers
             self.width = 0 # new option that determines network width. Putting to 0 makes it as wide as the number of b-values
         else:
             # chose wisely :)
@@ -77,12 +77,16 @@ class net_pars:
             self.parallel = True # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
             #### only if sigmoid constraint is used!
-            self.cons_min = [-0.0001, -0.05, -0.05, 0.7]  # Dt, Fp, Ds, S0
-            self.cons_max = [0.005, 0.7, 0.3, 1.3]  # Dt, Fp, Ds, S0
+            self.cons_min = [0, 0, 0.005, 0.5]  # Dt, Fp, Ds, S0
+            self.cons_max = [0.005, 0.7, 0.2, 2.5]  # Dt, Fp, Ds, S0
             ####
             self.fitS0 = False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
             self.depth = 4 # number of layers
             self.width = 500 # new option that determines network width. Putting to 0 makes it as wide as the number of b-values
+        boundsrange = 0.3 * np.array(self.cons_max)-np.array(self.cons_min) # ensure that we are on the most lineair bit of the sigmoid function
+        self.cons_min = np.array(self.cons_min) - boundsrange
+        self.cons_max = np.array(self.cons_max) + boundsrange
+
 
 
 class lsqfit:
@@ -92,8 +96,7 @@ class lsqfit:
         self.load_lsq = False # load the last results for lsq fit
         self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 in the least squares fit.
         self.jobs = 4 # number of parallel jobs. If set to 1, no parallel computing is used
-        self.bounds = ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3]) #Dt, Fp, Ds, S0
-
+        self.bounds = ([0, 0, 0.005, 0.7], [0.005, 0.7, 0.2, 2.5])  # Dt, Fp, Ds, S0
 
 class sim:
     def __init__(self):
@@ -103,8 +106,7 @@ class sim:
         self.num_samples_eval = 10000 # number of simualtiosn te evaluate. This can be lower than the number run. Particularly to save time when fitting. More simulations help with generating sufficient data for the neural network
         self.repeats = 1 # this is the number of repeats for simulations
         self.rician = False # add rician noise to simulations; if false, gaussian noise is added instead
-        self.range = ([0.0005, 0.05, 0.01],
-                  [0.003, 0.55, 0.1])
+        self.range = ([0.0005, 0.05, 0.01], [0.003, 0.55, 0.1])
 
 
 class hyperparams:

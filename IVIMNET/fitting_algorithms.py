@@ -528,7 +528,7 @@ def fit_bayesian(bvalues, dw_data, neg_log_prior, x0=[0.001, 0.2, 0.05], fitS0=T
     '''
     try:
         # define fit bounds
-        bounds = [(0, 0.006), (0, 1), (0.006, 0.3), (0, 2)]
+        bounds = [(0, 0.005), (0, 0.7), (0.005, 0.2), (0, 2.5)]
         # Find the Maximum a posterior probability (MAP) by minimising the negative log of the posterior
         if fitS0:
             params = minimize(neg_log_posterior, x0=x0, args=(bvalues, dw_data, neg_log_prior), bounds=bounds)
