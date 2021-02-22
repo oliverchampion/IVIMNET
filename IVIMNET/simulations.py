@@ -447,8 +447,8 @@ def sim_signal_predict(arg, SNR):
     # Add Gaussian noise to dwi image
     dwi_image_noise = dwi_image + dwi_noise_imag
     # normalise signal
-    S0_dwi_noisy = np.mean(dwi_image_noise[:, :, arg.sim.bvalues == 0], axis=1)
-    dwi_image_noise_norm = dwi_image_noise / S0_dwi_noisy[:, None]
+    S0_dwi_noisy = np.mean(dwi_image_noise[:, :, arg.sim.bvalues == 0], axis=2)
+    dwi_image_noise_norm = dwi_image_noise / S0_dwi_noisy[:, :, None]
 
     # plot simulated diffusion weighted image with noise
     fig, ax = plt.subplots(2, int(np.round(arg.sim.bvalues.shape[0] / 2)), figsize=(20, 20))

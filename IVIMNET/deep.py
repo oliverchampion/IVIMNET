@@ -64,55 +64,52 @@ class Net(nn.Module):
         self.est_pars = 3
         if self.net_pars.fitS0:
             self.est_pars += 1
-        # define number of outputs, if neighbours are taken along, we expect 9 outputs, otherwise 1
-        self.outs = 1
         # define module lists. If network is not parallel, we can do with 1 list, otherwise we need a list per parameter
-        self.fc_layers = nn.ModuleList()
+        self.fc_layers0 = nn.ModuleList()
         if self.net_pars.parallel:
+            self.fc_layers1 = nn.ModuleList()
             self.fc_layers2 = nn.ModuleList()
             self.fc_layers3 = nn.ModuleList()
-            self.fc_layers4 = nn.ModuleList()
         # loop over the layers
         width = len(bvalues)
         for i in range(self.net_pars.depth):
             # extend with a fully-connected linear layer
-            self.fc_layers.extend([nn.Linear(width, self.net_pars.width)])
+            self.fc_layers0.extend([nn.Linear(width, self.net_pars.width)])
             if self.net_pars.parallel:
+                self.fc_layers1.extend([nn.Linear(width, self.net_pars.width)])
                 self.fc_layers2.extend([nn.Linear(width, self.net_pars.width)])
                 self.fc_layers3.extend([nn.Linear(width, self.net_pars.width)])
-                self.fc_layers4.extend([nn.Linear(width, self.net_pars.width)])
             width = self.net_pars.width
             # if desired, add batch normalisation
             if self.net_pars.batch_norm:
-                self.fc_layers.extend([nn.BatchNorm1d(self.net_pars.width)])
+                self.fc_layers0.extend([nn.BatchNorm1d(self.net_pars.width)])
                 if self.net_pars.parallel:
+                    self.fc_layers1.extend([nn.BatchNorm1d(self.net_pars.width)])
                     self.fc_layers2.extend([nn.BatchNorm1d(self.net_pars.width)])
                     self.fc_layers3.extend([nn.BatchNorm1d(self.net_pars.width)])
-                    self.fc_layers4.extend([nn.BatchNorm1d(self.net_pars.width)])
             # add ELU units for non-linearity
-            self.fc_layers.extend([nn.ELU()])
+            self.fc_layers0.extend([nn.ELU()])
             if self.net_pars.parallel:
+                self.fc_layers1.extend([nn.ELU()])
                 self.fc_layers2.extend([nn.ELU()])
                 self.fc_layers3.extend([nn.ELU()])
-                self.fc_layers4.extend([nn.ELU()])
             # if dropout is desired, add dropout regularisation
-            if self.net_pars.dropout is not 0:
-                self.fc_layers.extend([nn.Dropout(self.net_pars.dropout)])
+            if self.net_pars.dropout is not 0 and i is not (self.net_pars.depth - 1):
+                self.fc_layers0.extend([nn.Dropout(self.net_pars.dropout)])
                 if self.net_pars.parallel:
+                    self.fc_layers1.extend([nn.Dropout(self.net_pars.dropout)])
                     self.fc_layers2.extend([nn.Dropout(self.net_pars.dropout)])
                     self.fc_layers3.extend([nn.Dropout(self.net_pars.dropout)])
-                    self.fc_layers4.extend([nn.Dropout(self.net_pars.dropout)])
         # Final layer yielding output, with either 3 (fix S0) or 4 outputs of a single network, or 1 output
         # per network in case of parallel networks.
-        if self.net_pars.dropout is not 0 and i is not (self.net_pars.depth - 1):
-            self.encoder = nn.Sequential(*self.fc_layers, nn.Linear(self.net_pars.width, self.outs))
-            self.encoder2 = nn.Sequential(*self.fc_layers2, nn.Linear(self.net_pars.width, self.outs))
-            self.encoder3 = nn.Sequential(*self.fc_layers3, nn.Linear(self.net_pars.width, self.outs))
+        if self.net_pars.parallel:
+            self.encoder0 = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, 1))
+            self.encoder1 = nn.Sequential(*self.fc_layers1, nn.Linear(self.net_pars.width, 1))
+            self.encoder2 = nn.Sequential(*self.fc_layers2, nn.Linear(self.net_pars.width, 1))
             if self.net_pars.fitS0:
-                self.encoder4 = nn.Sequential(*self.fc_layers4, nn.Linear(self.net_pars.width, self.outs))
+                self.encoder3 = nn.Sequential(*self.fc_layers3, nn.Linear(self.net_pars.width, 1))
         else:
-            self.encoder = nn.Sequential(*self.fc_layers, nn.Linear(self.net_pars.width, self.est_pars * self.outs))
-
+            self.encoder0 = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, self.est_pars))
     def forward(self, X):
         # select constraint method
         if self.net_pars.con == 'sigmoid':
@@ -128,83 +125,75 @@ class Net(nn.Module):
             # this network constrains the estimated parameters between two values by taking the sigmoid.
             # Advantage is that the parameters are constrained and that the mapping is unique.
             # Disadvantage is that the gradients go to zero close to the prameter bounds.
-            params1 = self.encoder(X)
+            params0 = self.encoder0(X)
             # if parallel again use each param comes from a different output
             if self.net_pars.parallel:
+                params1 = self.encoder1(X)
                 params2 = self.encoder2(X)
-                params3 = self.encoder3(X)
                 if self.net_pars.fitS0:
-                    params4 = self.encoder4(X)
+                    params3 = self.encoder3(X)
         elif self.net_pars.con == 'none' or self.net_pars.con == 'abs':
             if self.net_pars.con == 'abs':
                 # this network constrains the estimated parameters to be positive by taking the absolute.
                 # Advantage is that the parameters are constrained and that the derrivative of the function remains
                 # constant. Disadvantage is that -x=x, so could become unstable.
-                params1 = torch.abs(self.encoder(X))
+                params0 = torch.abs(self.encoder0(X))
                 if self.net_pars.parallel:
+                    params1 = torch.abs(self.encoder1(X))
                     params2 = torch.abs(self.encoder2(X))
-                    params3 = torch.abs(self.encoder3(X))
                     if self.net_pars.fitS0:
-                        params4 = torch.abs(self.encoder4(X))
+                        params3 = torch.abs(self.encoder3(X))
             else:
                 # this network is not constraint
-                params1 = self.encoder(X)
+                params0 = self.encoder0(X)
                 if self.net_pars.parallel:
+                    params1 = self.encoder1(X)
                     params2 = self.encoder2(X)
-                    params3 = self.encoder3(X)
                     if self.net_pars.fitS0:
-                        params4 = self.encoder4(X)
+                        params3 = self.encoder3(X)
         else:
             raise Exception('the chose parameter constraint is not implemented. Try ''sigmoid'', ''none'' or ''abs''')
         X_temp=[]
-        for aa in range(self.outs):
-            if self.net_pars.con == 'sigmoid':
-                # applying constraints
-                if self.net_pars.parallel:
-                    Dp = Dpmin + torch.sigmoid(params1[:, aa].unsqueeze(1)) * (Dpmax - Dpmin)
-                    Dt = Dmin + torch.sigmoid(params2[:, aa].unsqueeze(1)) * (Dmax - Dmin)
-                    Fp = fmin + torch.sigmoid(params3[:, aa].unsqueeze(1)) * (fmax - fmin)
-                    if self.net_pars.fitS0:
-                        S0 = S0min + torch.sigmoid(params4[:, aa].unsqueeze(1)) * (S0max - S0min)
-                else:
-                    Dp = Dpmin + torch.sigmoid(params1[:, aa * self.est_pars + 0].unsqueeze(1)) * (Dpmax - Dpmin)
-                    Dt = Dmin + torch.sigmoid(params1[:, aa * self.est_pars + 1].unsqueeze(1)) * (Dmax - Dmin)
-                    Fp = fmin + torch.sigmoid(params1[:, aa * self.est_pars + 2].unsqueeze(1)) * (fmax - fmin)
-                    if self.net_pars.fitS0:
-                        S0 = S0min + torch.sigmoid(params1[:, aa * self.est_pars + 3].unsqueeze(1)) * (S0max - S0min)
-            elif self.net_pars.con == 'none' or self.net_pars.con == 'abs':
-                if self.net_pars.parallel:
-                    Dp = params1[:, aa].unsqueeze(1)
-                    Dt = params2[:, aa].unsqueeze(1)
-                    Fp = params3[:, aa].unsqueeze(1)
-                    if self.net_pars.fitS0:
-                        S0 = params4[:, aa].unsqueeze(1)
-                else:
-                    Dp = params1[:, aa * self.est_pars + 0].unsqueeze(1)
-                    Dt = params1[:, aa * self.est_pars + 1].unsqueeze(1)
-                    Fp = params1[:, aa * self.est_pars + 2].unsqueeze(1)
-                    if self.net_pars.fitS0:
-                        S0 = params1[:, aa * self.est_pars + 3].unsqueeze(1)
-            # the central voxel will give the estimates of D, f and D*. In all other cases a is always 0.
-            if aa == 0:
-                Dpout = copy.copy(Dp)
-                Dtout = copy.copy(Dt)
-                Fpout = copy.copy(Fp)
+        if self.net_pars.con == 'sigmoid':
+            # applying constraints
+            if self.net_pars.parallel:
+                Dp = Dpmin + torch.sigmoid(params0.unsqueeze(1)) * (Dpmax - Dpmin)
+                Dt = Dmin + torch.sigmoid(params1.unsqueeze(1)) * (Dmax - Dmin)
+                Fp = fmin + torch.sigmoid(params2.unsqueeze(1)) * (fmax - fmin)
                 if self.net_pars.fitS0:
-                    S0out = copy.copy(S0)
-            # here we estimate X, the signal as function of b-values given the predicted IVIM parameters. Although
-            # this parameter is not interesting for prediction, it is used in the loss function
-            # in this a>0 case, we fill up the predicted signal of the neighbouring voxels too, as these are used in
-            # the loss function.
-            if self.net_pars.fitS0:
-                X_temp.append(S0 * (Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
+                    S0 = S0min + torch.sigmoid(params3.unsqueeze(1)) * (S0max - S0min)
             else:
-                X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
+                Dp = Dpmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
+                Dt = Dmin + torch.sigmoid(params0[:, 1].unsqueeze(1)) * (Dmax - Dmin)
+                Fp = fmin + torch.sigmoid(params0[:, 2].unsqueeze(1)) * (fmax - fmin)
+                if self.net_pars.fitS0:
+                    S0 = S0min + torch.sigmoid(params0[:, 3].unsqueeze(1)) * (S0max - S0min)
+        elif self.net_pars.con == 'none' or self.net_pars.con == 'abs':
+            if self.net_pars.parallel:
+                Dp = params0.unsqueeze(1)
+                Dt = params1.unsqueeze(1)
+                Fp = params2.unsqueeze(1)
+                if self.net_pars.fitS0:
+                    S0 = params3.unsqueeze(1)
+            else:
+                Dp = params0[:, 0].unsqueeze(1)
+                Dt = params0[:, 1].unsqueeze(1)
+                Fp = params0[:, 2].unsqueeze(1)
+                if self.net_pars.fitS0:
+                    S0 = params0[:, 3].unsqueeze(1)
+        # here we estimate X, the signal as function of b-values given the predicted IVIM parameters. Although
+        # this parameter is not interesting for prediction, it is used in the loss function
+        # in this a>0 case, we fill up the predicted signal of the neighbouring voxels too, as these are used in
+        # the loss function.
+        if self.net_pars.fitS0:
+            X_temp.append(S0 * (Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
+        else:
+            X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
         X = torch.cat(X_temp,dim=1)
         if self.net_pars.fitS0:
-            return X, Dtout, Fpout, Dpout, S0out
+            return X, Dt, Fp, Dp, S0
         else:
-            return X, Dtout, Fpout, Dpout, torch.ones(len(Dtout))
+            return X, Dt, Fp, Dp, torch.ones(len(Dt))
 
 
 def learn_IVIM(X_train, bvalues, arg, net=None):
@@ -330,7 +319,6 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
             X_pred[X_pred > 3] = 3
             # validation loss
             loss = criterion(X_pred, X_batch)
-            print(i)
             running_loss_val += loss.item()
         # scale losses
         running_loss_train = running_loss_train / totalit
@@ -389,14 +377,14 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
 def load_optimizer(net, arg):
     if arg.net_pars.parallel:
         if arg.net_pars.fitS0:
-            par_list = [{'params': net.encoder.parameters(), 'lr': arg.train_pars.lr},
-                        {'params': net.encoder2.parameters()}, {'params': net.encoder3.parameters()},
-                        {'params': net.encoder4.parameters()}]
+            par_list = [{'params': net.encoder0.parameters(), 'lr': arg.train_pars.lr},
+                        {'params': net.encoder1.parameters()}, {'params': net.encoder2.parameters()},
+                        {'params': net.encoder3.parameters()}]
         else:
-            par_list = [{'params': net.encoder.parameters(), 'lr': arg.train_pars.lr},
-                        {'params': net.encoder2.parameters()}, {'params': net.encoder3.parameters()}]
+            par_list = [{'params': net.encoder0.parameters(), 'lr': arg.train_pars.lr},
+                        {'params': net.encoder1.parameters()}, {'params': net.encoder2.parameters()}]
     else:
-        par_list = [{'params': net.encoder.parameters()}]
+        par_list = [{'params': net.encoder0.parameters()}]
     if arg.train_pars.optim == 'adam':
         optimizer = optim.Adam(par_list, lr=arg.train_pars.lr, weight_decay=1e-4)
     elif arg.train_pars.optim == 'sgd':

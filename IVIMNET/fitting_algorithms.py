@@ -147,7 +147,7 @@ def MSE(bvalues, Dt, Fp, Dp, S0, dw_data):
 
 def ivimN(bvalues, Dt, Fp, Dp, S0):
     # IVIM function in which we try to have equal variance in the different IVIM parameters; equal variance helps with certain fitting algorithms
-    return S0 * (Fp / 10 * np.exp(-bvalues * Dp / 10) + (1 - Fp / 10) * np.exp(-bvalues * Dt / 1000))
+    return S0 * ivimN_noS0(bvalues, Dt, Fp, Dp)
 
 
 def ivimN_noS0(bvalues, Dt, Fp, Dp):
@@ -171,7 +171,7 @@ def order(Dt, Fp, Dp, S0=None):
         return Dt, Fp, Dp, S0
 
 
-def fit_segmented_array(bvalues, dw_data, njobs=4, bounds=([0, 0, 0.005],[0.005, 0.7, 0.3]), cutoff=75):
+def fit_segmented_array(bvalues, dw_data, njobs=4, bounds=([0, 0, 0.005],[0.005, 0.7, 0.2]), cutoff=75):
     """
     This is an implementation of the segmented fit, in which we first estimate D using a curve fit to b-values>cutoff;
     then estimate f from the fitted S0 and the measured S0 and finally estimate D* while fixing D and f. This fit
@@ -179,7 +179,7 @@ def fit_segmented_array(bvalues, dw_data, njobs=4, bounds=([0, 0, 0.005],[0.005,
     :param bvalues: 1D Array with the b-values
     :param dw_data: 2D Array with diffusion-weighted signal in different voxels at different b-values
     :param njobs: Integer determining the number of parallel processes; default = 4
-    :param bounds: 2D Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.3, 0.7, 0.005, 1.2])
+    :param bounds: 2D Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.2, 0.7, 0.005, 1.2])
     :param cutoff: cutoff value for determining which data is taken along in fitting D
     :return Dt: 1D Array with D in each voxel
     :return Fp: 1D Array with f in each voxel
@@ -216,13 +216,13 @@ def fit_segmented_array(bvalues, dw_data, njobs=4, bounds=([0, 0, 0.005],[0.005,
     return [Dt, Fp, Dp, S0]
 
 
-def fit_segmented(bvalues, dw_data, bounds=([0, 0, 0.005],[0.005, 0.7, 0.3]), cutoff=75):
+def fit_segmented(bvalues, dw_data, bounds=([0, 0, 0.005],[0.005, 0.7, 0.2]), cutoff=75):
     """
     This is an implementation of the segmented fit, in which we first estimate D using a curve fit to b-values>cutoff;
     then estimate f from the fitted S0 and the measured S0 and finally estimate D* while fixing D and f.
     :param bvalues: Array with the b-values
     :param dw_data: Array with diffusion-weighted signal at different b-values
-    :param bounds: Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.3, 0.7, 0.005, 1.2])
+    :param bounds: Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.2, 0.7, 0.005, 1.2])
     :param cutoff: cutoff value for determining which data is taken along in fitting D
     :return Dt: Fitted D
     :return Fp: Fitted f
@@ -255,7 +255,7 @@ def fit_segmented(bvalues, dw_data, bounds=([0, 0, 0.005],[0.005, 0.7, 0.3]), cu
 
 
 def fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=True, njobs=4,
-                            bounds=([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3])):
+                            bounds=([0, 0, 0.005, 0.7],[0.005, 0.7, 0.2, 1.3])):
     """
     This is an implementation of the conventional IVIM fit. It is fitted in array form.
     :param bvalues: 1D Array with the b-values
@@ -263,7 +263,7 @@ def fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=True, njobs=
     :param S0_output: Boolean determining whether to output (often a dummy) variable S0; default = True
     :param fix_S0: Boolean determining whether to fix S0 to 1; default = False
     :param njobs: Integer determining the number of parallel processes; default = 4
-    :param bounds: Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.3, 0.7, 0.005, 1.2])
+    :param bounds: Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.2, 0.7, 0.005, 1.2])
     :return Dt: 1D Array with D in each voxel
     :return Fp: 1D Array with f in each voxel
     :return Dp: 1D Array with Dp in each voxel
@@ -323,14 +323,14 @@ def fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=True, njobs=
 
 
 def fit_least_squares(bvalues, dw_data, S0_output=False, fitS0=True,
-                      bounds=([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3])):
+                      bounds=([0, 0, 0.005, 0.7],[0.005, 0.7, 0.2, 1.3])):
     """
     This is an implementation of the conventional IVIM fit. It fits a single curve
     :param bvalues: Array with the b-values
     :param dw_data: Array with diffusion-weighted signal at different b-values
     :param S0_output: Boolean determining whether to output (often a dummy) variable S0; default = True
     :param fix_S0: Boolean determining whether to fix S0 to 1; default = False
-    :param bounds: Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.3, 0.7, 0.005, 1.2])
+    :param bounds: Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.2, 0.7, 0.005, 1.2])
     :return Dt: Array with D in each voxel
     :return Fp: Array with f in each voxel
     :return Dp: Array with Dp in each voxel
@@ -565,6 +565,6 @@ def checkarg_lsq(arg):
         warnings.warn('arg.fit.jobs not defined. Using default of 4')
         arg.jobs = 4
     if not hasattr(arg, 'bounds'):
-        warnings.warn('arg.fit.bounds not defined. Using default of ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3])')
-        arg.bounds = ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.3, 1.3]) #Dt, Fp, Ds, S0
+        warnings.warn('arg.fit.bounds not defined. Using default of ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.2, 1.3])')
+        arg.bounds = ([0, 0, 0.005, 0.7],[0.005, 0.7, 0.2, 1.3]) #Dt, Fp, Ds, S0
     return arg
