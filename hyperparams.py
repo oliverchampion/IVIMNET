@@ -48,7 +48,7 @@ class net_pars:
             # the optimized network settings
             self.dropout = 0.1 #0.0/0.1 chose how much dropout one likes. 0=no dropout; internet says roughly 20% (0.20) is good, although it also states that smaller networks might desire smaller amount of dropout
             self.batch_norm = True # False/True turns on batch normalistion
-            self.parallel = False # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+            self.parallel = True # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
             #### only if sigmoid constraint is used!
             self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
