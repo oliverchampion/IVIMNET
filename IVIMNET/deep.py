@@ -157,11 +157,11 @@ class Net(nn.Module):
         if self.net_pars.con == 'sigmoid':
             # applying constraints
             if self.net_pars.parallel:
-                Dp = Dpmin + torch.sigmoid(params0.unsqueeze(1)) * (Dpmax - Dpmin)
-                Dt = Dmin + torch.sigmoid(params1.unsqueeze(1)) * (Dmax - Dmin)
-                Fp = fmin + torch.sigmoid(params2.unsqueeze(1)) * (fmax - fmin)
+                Dp = Dpmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
+                Dt = Dmin + torch.sigmoid(params1[:, 0].unsqueeze(1)) * (Dmax - Dmin)
+                Fp = fmin + torch.sigmoid(params2[:, 0].unsqueeze(1)) * (fmax - fmin)
                 if self.net_pars.fitS0:
-                    S0 = S0min + torch.sigmoid(params3.unsqueeze(1)) * (S0max - S0min)
+                    S0 = S0min + torch.sigmoid(params3[:, 0].unsqueeze(1)) * (S0max - S0min)
             else:
                 Dp = Dpmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
                 Dt = Dmin + torch.sigmoid(params0[:, 1].unsqueeze(1)) * (Dmax - Dmin)
@@ -170,11 +170,11 @@ class Net(nn.Module):
                     S0 = S0min + torch.sigmoid(params0[:, 3].unsqueeze(1)) * (S0max - S0min)
         elif self.net_pars.con == 'none' or self.net_pars.con == 'abs':
             if self.net_pars.parallel:
-                Dp = params0.unsqueeze(1)
-                Dt = params1.unsqueeze(1)
-                Fp = params2.unsqueeze(1)
+                Dp = params0[:, 0].unsqueeze(1)
+                Dt = params1[:, 0].unsqueeze(1)
+                Fp = params2[:, 0].unsqueeze(1)
                 if self.net_pars.fitS0:
-                    S0 = params3.unsqueeze(1)
+                    S0 = params3[:, 0].unsqueeze(1)
             else:
                 Dp = params0[:, 0].unsqueeze(1)
                 Dt = params0[:, 1].unsqueeze(1)
