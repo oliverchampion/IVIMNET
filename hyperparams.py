@@ -48,11 +48,16 @@ class net_pars:
             # the optimized network settings
             self.dropout = 0.1 #0.0/0.1 chose how much dropout one likes. 0=no dropout; internet says roughly 20% (0.20) is good, although it also states that smaller networks might desire smaller amount of dropout
             self.batch_norm = True # False/True turns on batch normalistion
-            self.parallel = True # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+            self.parallel = 'parallel' # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
+            self.tri_exp = False
             #### only if sigmoid constraint is used!
-            self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
-            self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
+            if self.tri_exp:
+                self.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08] # F0', D0, F1', D1, F2', D2
+                self.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  # F0', D0, F1', D1, F2', D2
+            else:
+                self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
+                self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
             ####
             self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
             self.depth = 2 # number of layers
@@ -61,11 +66,16 @@ class net_pars:
             # as summarized in Table 1 from the main article for the original network
             self.dropout = 0.0 #0.0/0.1 chose how much dropout one likes. 0=no dropout; internet says roughly 20% (0.20) is good, although it also states that smaller networks might desire smaller amount of dropout
             self.batch_norm = False # False/True turns on batch normalistion
-            self.parallel = False  # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+            self.parallel = 'single'  # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'abs' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
+            self.tri_exp = False
             #### only if sigmoid constraint is used!
-            self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
-            self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
+            if self.tri_exp:
+                self.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08] # F0', D0, F1', D1, F2', D2
+                self.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  # F0', D0, F1', D1, F2', D2
+            else:
+                self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
+                self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
             ####
             self.fitS0 = False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
             self.depth = 3 # number of layers
@@ -74,11 +84,16 @@ class net_pars:
             # chose wisely :)
             self.dropout = 0.3 #0.0/0.1 chose how much dropout one likes. 0=no dropout; internet says roughly 20% (0.20) is good, although it also states that smaller networks might desire smaller amount of dropout
             self.batch_norm = True # False/True turns on batch normalistion
-            self.parallel = True # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+            self.parallel = 'parallel' # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
             self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
+            self.tri_exp = True
             #### only if sigmoid constraint is used!
-            self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
-            self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
+            if self.tri_exp:
+                self.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08] # F0', D0, F1', D1, F2', D2
+                self.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  # F0', D0, F1', D1, F2', D2
+            else:
+                self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
+                self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
             ####
             self.fitS0 = False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
             self.depth = 4 # number of layers
@@ -91,12 +106,15 @@ class net_pars:
 
 class lsqfit:
     def __init__(self):
-        self.method = 'lsq' #seg, bayes or lsq
+        self.method = 'lsq' #seg, bayes or lsq, tri-exp, seg_tri-exp
         self.do_fit = True # skip lsq fitting
         self.load_lsq = False # load the last results for lsq fit
         self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 in the least squares fit.
         self.jobs = 4 # number of parallel jobs. If set to 1, no parallel computing is used
-        self.bounds = ([0, 0, 0.005, 0.7], [0.005, 0.7, 0.2, 2.0])  # Dt, Fp, Ds, S0
+        if self.method == 'tri-exp' or self.method == 'seg_tri-exp':
+            self.bounds = ([0, 0, 0, 0.008, 0, 0.06], [2.5, 0.008, 1, 0.08, 1, 5]) # F0', D0, F1', D1, F2', D2
+        else:
+            self.bounds = ([0.0003, 0, 0.005, 0.5], [0.005, 0.7, 0.3, 2.5])  # Dt, Fp, Ds, S0
 
 class sim:
     def __init__(self):
@@ -111,7 +129,7 @@ class sim:
 
 class hyperparams:
     def __init__(self):
-        self.fig = True # plot results and intermediate steps
+        self.fig = False # plot results and intermediate steps
         self.save_name = 'optim' # orig or optim (or optim_adsig for in vivo)
         self.net_pars = net_pars(self.save_name)
         self.train_pars = train_pars(self.save_name)

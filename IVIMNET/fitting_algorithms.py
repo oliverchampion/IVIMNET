@@ -63,6 +63,20 @@ def fit_dats(bvalues, dw_data, arg, savename=None):
                 # save results if parameter savename is given
                 if savename is not None:
                     np.savez(savename, paramslsq=paramslsq)
+            elif (arg.method == 'tri-exp'):
+                print('running tri-exp fit\n')
+                paramslsq = fit_least_squares_array_tri_exp(bvalues, dw_data, S0_output=True, fitS0=arg.fitS0,
+                                                            njobs=arg.jobs,
+                                                            bounds=arg.bounds)
+                # save results if parameter savename is given
+                if savename is not None:
+                    np.savez(savename, paramslsq=paramslsq)
+            elif (arg.method == 'seg_tri-exp'):
+                print('running segmented fit\n')
+                paramslsq = fit_segmented_array_tri_exp(bvalues, dw_data, njobs=arg.jobs, bounds=arg.bounds)
+                # save results if parameter savename is given
+                if savename is not None:
+                    np.savez(savename, paramslsq=paramslsq)
             elif arg.method == 'bayes':
                 print('running conventional fit to determine Bayesian prior\n')
                 # for this Bayesian fit approach, a data-driven prior needs to be defined. Hence, intially we do a regular lsq fit
@@ -92,7 +106,7 @@ def fit_dats(bvalues, dw_data, arg, savename=None):
     return None
 
 
-def goodness_of_fit(bvalues, Dt, Fp, Dp, S0, dw_data):
+def goodness_of_fit(bvalues, Dt, Fp, Dp, S0, dw_data, Fp2 = None, Dp2 = None):
     """
     Calculates the R-squared as a measure for goodness of fit.
     input parameters are
@@ -106,18 +120,56 @@ def goodness_of_fit(bvalues, Dt, Fp, Dp, S0, dw_data):
     :return R2: 1D Array with the R-squared for each voxel
     """
     # simulate the IVIM signal given the D, f, D* and S0
-    datasim = ivim(np.tile(np.expand_dims(bvalues, axis=0), (len(Dt), 1)),
-                   np.tile(np.expand_dims(Dt, axis=1), (1, len(bvalues))),
-                   np.tile(np.expand_dims(Fp, axis=1), (1, len(bvalues))),
-                   np.tile(np.expand_dims(Dp, axis=1), (1, len(bvalues))),
-                   np.tile(np.expand_dims(S0, axis=1), (1, len(bvalues)))).astype('f')
-
-    # calculate R-squared given the estimated IVIM signal and the data
-    norm = np.mean(dw_data, axis=1)
-    ss_tot = np.sum(np.square(dw_data - norm[:, None]), axis=1)
-    ss_res = np.sum(np.square(dw_data - datasim), axis=1)
-    R2 = 1 - (ss_res / ss_tot)  # R-squared
-    return R2
+    try:
+        if Fp2 is None:
+            datasim = ivim(np.tile(np.expand_dims(bvalues, axis=0), (len(Dt), 1)),
+                           np.tile(np.expand_dims(Dt, axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(Fp, axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(Dp, axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(S0, axis=1), (1, len(bvalues)))).astype('f')
+        else:
+            datasim = tri_exp(np.tile(np.expand_dims(bvalues, axis=0), (len(Dt), 1)),
+                           np.tile(np.expand_dims(S0*(1-Fp-Fp2), axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(Dt, axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(Fp*S0, axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(Dp, axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(Fp2*S0, axis=1), (1, len(bvalues))),
+                           np.tile(np.expand_dims(Dp2, axis=1), (1, len(bvalues))),
+                           ).astype('f')
+        # calculate R-squared given the estimated IVIM signal and the data
+        norm = np.mean(dw_data, axis=1)
+        ss_tot = np.sum(np.square(dw_data - norm[:, None]), axis=1)
+        ss_res = np.sum(np.square(dw_data - datasim), axis=1)
+        R2 = 1 - (ss_res / ss_tot)  # R-squared
+        if Fp2 is None:
+            adjusted_R2 = 1-((1-R2)*(len(bvalues))/(len(bvalues)-4-1))
+        else:
+            adjusted_R2 = 1 - ((1 - R2) * (len(bvalues)) / (len(bvalues) - 6 - 1))
+        R2[R2<0]=0
+        adjusted_R2[adjusted_R2<0]=0
+    except:
+        if Fp2 is None:
+            datasim = ivim(bvalues,Dt, Fp,Dp,S0)
+        else:
+            datasim = tri_exp(bvalues, S0 * (1 - Fp - Fp2), Dt, Fp * S0, Dp, Fp2 * S0, Dp2)
+        norm = np.mean(dw_data)
+        ss_tot = np.sum(np.square(dw_data - norm))
+        ss_res = np.sum(np.square(dw_data - datasim))
+        R2 = 1 - (ss_res / ss_tot)  # R-squared
+        if Fp2 is None:
+            adjusted_R2 = 1-((1-R2)*(len(bvalues))/(len(bvalues)-4-1))
+        else:
+            adjusted_R2 = 1 - ((1 - R2) * (len(bvalues)) / (len(bvalues) - 6 - 1))
+        # from matplotlib import pyplot as plt
+        # plt.figure(1)
+        # vox=58885
+        # plt.clf()
+        # plt.plot(bvalues, datasim[vox], 'rx', markersize=5)
+        # plt.plot(bvalues, dw_data[vox], 'bx', markersize=5)
+        # plt.ion()
+        # plt.show()
+        # print(R2[vox])
+    return R2, adjusted_R2
 
 
 def MSE(bvalues, Dt, Fp, Dp, S0, dw_data):
@@ -158,6 +210,21 @@ def ivimN_noS0(bvalues, Dt, Fp, Dp):
 def ivim(bvalues, Dt, Fp, Dp, S0):
     # regular IVIM function
     return (S0 * (Fp * np.exp(-bvalues * Dp) + (1 - Fp) * np.exp(-bvalues * Dt)))
+
+
+def tri_expN(bvalues, Fp0, Dt, Fp1, Dp1, Fp2, Dp2):
+    # tri-exp function in which we try to have equal variance in the different IVIM parameters; equal variance helps with certain fitting algorithms
+    return (Fp1 / 10 * np.exp(-bvalues * Dp1 / 100) + Fp2 / 10 * np.exp(-bvalues * Dp2 / 10) + (Fp0 / 10) * np.exp(-bvalues * Dt / 1000))
+
+
+def tri_expN_noS0(bvalues, Dt, Fp1, Dp1, Fp2, Dp2):
+    # tri-exp function in which we try to have equal variance in the different IVIM parameters and S0=1
+    return (Fp1 / 10 * np.exp(-bvalues * Dp1 / 100) + Fp2 / 10 * np.exp(-bvalues * Dp2 / 10) + (1 - Fp1 / 10 - Fp2 / 10) * np.exp(-bvalues * Dt / 1000))
+
+
+def tri_exp(bvalues, Fp0, Dt, Fp1, Dp1, Fp2, Dp2):
+    # tri-exp function in which we try to have equal variance in the different IVIM parameters; equal variance helps with certain fitting algorithms
+    return (Fp1 * np.exp(-bvalues * Dp1) + Fp2 * np.exp(-bvalues * Dp2) + (Fp0) * np.exp(-bvalues * Dt))
 
 
 def order(Dt, Fp, Dp, S0=None):
@@ -364,6 +431,208 @@ def fit_least_squares(bvalues, dw_data, S0_output=False, fitS0=True,
             return Dt, Fp, Dp, 1
         else:
             return fit_segmented(bvalues, dw_data)
+
+
+def fit_least_squares_array_tri_exp(bvalues, dw_data, S0_output=True, fitS0=True, njobs=4,
+                            bounds=([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5])):
+    """
+    This is an implementation of a tri-exponential fit. It is fitted in array form.
+    :param bvalues: 1D Array with the b-values
+    :param dw_data: 2D Array with diffusion-weighted signal in different voxels at different b-values
+    :param S0_output: Boolean determining whether to output (often a dummy) variable S0; default = True
+    :param fix_S0: Boolean determining whether to fix S0 to 1; default = False
+    :param njobs: Integer determining the number of parallel processes; default = 4
+    :param bounds: Array with fit bounds ([fp0min, Dtmin, Fp1min, Dp1min, Fp2min, Dp2min],[fp0max, Dtmax, Fp1max, Dp1max, Fp2max, Dp2max]). Default: ([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5])
+    :return S0: optional 1D Array with S0 in each voxel
+    :return Dt: 1D Array with D in each voxel
+    :return Fp1: 1D Array with Fp1 in each voxel
+    :return Dp1: 1D Array with Dp1 in each voxel
+    :return Fp2: 1D Array with Fp2 in each voxel
+    :return Dp2: 1D Array with Dp2 in each voxel
+    """
+    # normalise the data to S(value=0)
+    S0 = np.mean(dw_data[:, bvalues == 0], axis=1)
+    dw_data = dw_data / S0[:, None]
+    single = False
+    # check if parallel is desired
+    if njobs > 1:
+        try:
+            # defining parallel function
+            def parfun(i):
+                return fit_least_squares_tri_exp(bvalues, dw_data[i, :], S0_output=S0_output, fitS0=fitS0, bounds=bounds)
+
+            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True))
+            Fp0, Dt, Fp1, Dp1, Fp2, Dp2 = np.transpose(output)
+        except:
+            single = True
+    else:
+        single = True
+    if single:
+        # run on single core, instead. Defining empty arrays
+        Dp1 = np.zeros(len(dw_data))
+        Dt = np.zeros(len(dw_data))
+        Fp1 = np.zeros(len(dw_data))
+        Fp0 = np.zeros(len(dw_data))
+        Fp2 = np.zeros(len(dw_data))
+        Dp2 = np.zeros(len(dw_data))
+        # running in a single loop and filling arrays
+        for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True):
+            Fp0[i], Dt[i], Fp1[i], Dp1[i], Fp2[i], Dp2[i] = fit_least_squares_tri_exp(bvalues, dw_data[i, :], S0_output=S0_output, fitS0=fitS0,
+                                                           bounds=bounds)
+    if S0_output:
+        return [Fp0+Fp1+Fp2, Dt, Fp1/(Fp0+Fp1+Fp2), Dp1, Fp2/(Fp0+Fp1+Fp2), Dp2]
+    else:
+        return [Dt, Fp1/(Fp0+Fp1+Fp2), Dp1, Fp2/(Fp0+Fp1+Fp2), Dp2]
+
+
+def fit_least_squares_tri_exp(bvalues, dw_data, S0_output=False, fitS0=True,
+                      bounds=([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5])):
+    """
+    This is an implementation of the tri-exponential fit. It fits a single curve
+    :param bvalues: 1D Array with the b-values
+    :param dw_data: 2D Array with diffusion-weighted signal in different voxels at different b-values
+    :param S0_output: Boolean determining whether to output (often a dummy) variable S0; default = True
+    :param fix_S0: Boolean determining whether to fix S0 to 1; default = False
+    :param bounds: Array with fit bounds ([fp0min, Dtmin, Fp1min, Dp1min, Fp2min, Dp2min],[fp0max, Dtmax, Fp1max, Dp1max, Fp2max, Dp2max]). Default: ([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5])
+    :return Fp0: optional 1D Array with f0 in each voxel
+    :return Dt: 1D Array with D in each voxel
+    :return Fp1: 1D Array with fp1 in each voxel
+    :return Dp1: 1D Array with Dp1 in each voxel
+    :return Fp2: 1D Array with the fraciton of signal for Dp2 in each voxel
+    :return Dp2: 1D Array with Dp2 in each voxel
+    """
+    try:
+        if not fitS0:
+            # bounds are rescaled such that each parameter changes at roughly the same rate to help fitting.
+            bounds = ([bounds[0][1] * 1000, bounds[0][2] * 10, bounds[0][3] * 100, bounds[0][4] * 10, bounds[0][5] * 10],
+                      [bounds[1][1] * 1000, bounds[1][2] * 10, bounds[1][3] * 100, bounds[1][4] * 10, bounds[1][5] * 10])
+            params, _ = curve_fit(tri_expN_noS0, bvalues, dw_data, p0=[1.5, 1, 3, 1, 1.5], bounds=bounds)
+            Fp0 = 1 - params[1] / 10 - params[3] / 10
+            Dt, Fp1, Dp1, Fp2, Dp2 = params[0] / 1000, params[1] / 10, params[2] / 100, params[3] / 10, params[4] / 10
+        else:
+            # bounds are rescaled such that each parameter changes at roughly the same rate to help fitting.
+            bounds = ([bounds[0][0] * 10, bounds[0][1] * 1000, bounds[0][2] * 10, bounds[0][3] * 100, bounds[0][4] * 10, bounds[0][5] * 10],
+                      [bounds[1][0] * 10, bounds[1][1] * 1000, bounds[1][2] * 10, bounds[1][3] * 100, bounds[1][4] * 10, bounds[1][5] * 10])
+            params, _ = curve_fit(tri_expN, bvalues, dw_data, p0=[8, 1.0, 1, 3, 1, 1.5], bounds=bounds)
+            Fp0 = params[0]/10
+            Dt, Fp1, Dp1, Fp2, Dp2 = params[1] / 1000, params[2] / 10, params[3] / 100, params[4] / 10, params[5] / 10
+        # correct for the rescaling of parameters
+        # reorder output in case Dp<Dt
+        if S0_output:
+            #Dt, Fp, Dp, Fp2, Dp2 = order_tri(Dt, Fp, Dp, Fp2, Dp2)
+            return Fp0, Dt, Fp1, Dp1, Fp2, Dp2
+        else:
+            return Dt, Fp1, Dp1, Fp2, Dp2
+    except:
+        # if fit fails, then do a segmented fit instead
+        # print('lsq fit failed, trying segmented')
+        if S0_output:
+            return 0, 0, 0, 0, 0, 0
+        else:
+            return 0, 0, 0, 0, 0
+
+
+def fit_segmented_array_tri_exp(bvalues, dw_data, njobs=4, bounds=([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5]), cutoff=[15, 120]):
+    """
+    This is an implementation of the segmented fit for a tri-exp model, in which we first estimate D using a curve fit to b-values>cutoff;
+    then estimate f from the fitted S0 and the measured S0 and finally estimate D* while fixing D and f. This fit
+    is done on an array.
+    :param bvalues: 1D Array with the b-values
+    :param dw_data: 2D Array with diffusion-weighted signal in different voxels at different b-values
+    :param njobs: Integer determining the number of parallel processes; default = 4
+    :param bounds: Array with fit bounds ([fp0min, Dtmin, Fp1min, Dp1min, Fp2min, Dp2min],[fp0max, Dtmax, Fp1max, Dp1max, Fp2max, Dp2max]). Default: ([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5])
+    :param cutoff: 2 cutoff values for determining which data is taken along in fitting D, and subsequently D* and F
+    :return S0: 1D Array with S0 in each voxel
+    :return Dt: 1D Array with D in each voxel
+    :return Fp1: 1D Array with Fp1 in each voxel
+    :return Dp1: 1D Array with Dp1 in each voxel
+    :return Fp2: 1D Array with Fp2 in each voxel
+    :return Dp2: 1D Array with Dp2 in each voxel
+    """
+    # first we normalise the signal to S0
+    S0 = np.mean(dw_data[:, bvalues == 0], axis=1)
+    dw_data = dw_data / S0[:, None]
+    # here we try parallel computing, but if fails, go back to computing one single core.
+    single = False
+    if njobs > 2:
+        try:
+            # define the parallel function
+            def parfun(i):
+                return fit_segmented(bvalues, dw_data[i, :], bounds=bounds, cutoff=cutoff)
+
+            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True))
+            Dt, Fp, Dp, Fp0, Fp2, Dp2 = np.transpose(output)
+        except:
+            # if fails, retry using single core
+            single = True
+    else:
+        # or, if specified, immediately go to single core
+        single = True
+    if single:
+        # initialize empty arrays
+        Dp1 = np.zeros(len(dw_data))
+        Dt = np.zeros(len(dw_data))
+        Fp0 = np.zeros(len(dw_data))
+        Fp1 = np.zeros(len(dw_data))
+        Dp2 = np.zeros(len(dw_data))
+        Fp2 = np.zeros(len(dw_data))
+        for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True):
+            # fill arrays with fit results on a per voxel base:
+            Fp0[i], Dt[i], Fp1[i], Dp1[i], Fp2[i], Dp2[i] = fit_segmented_tri_exp(bvalues, dw_data[i, :], bounds=bounds, cutoff=cutoff)
+    return [Fp0+Fp1+Fp2, Dt, Fp1/(Fp0+Fp1+Fp2), Dp1, Fp2/(Fp0+Fp1+Fp2), Dp2]
+
+
+def fit_segmented_tri_exp(bvalues, dw_data, bounds=([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5]), cutoff=[15, 120]):
+    """
+    This is an implementation of the segmented fit, in which we first estimate D using a curve fit to b-values>cutoff;
+    then estimate f from the fitted S0 and the measured S0 and finally estimate D* while fixing D and f.
+    :param bvalues: Array with the b-values
+    :param dw_data: Array with diffusion-weighted signal at different b-values
+    :param bounds: Array with fit bounds ([fp0min, Dtmin, Fp1min, Dp1min, Fp2min, Dp2min],[fp0max, Dtmax, Fp1max, Dp1max, Fp2max, Dp2max]). Default: ([0, 0, 0, 0.005, 0, 0.06], [2.5, 0.005, 1, 0.06, 1, 0.5])
+    :param cutoff: 2 cutoff values for determining which data is taken along in fitting D, and subsequently D* and F
+    :return Fp0: 1D Array with Fp1 in each voxel
+    :return Dt: Fitted D
+    :return Fp1: Fitted f
+    :return Dp1: Fitted Dp
+    :return Fp2: Fitted Fp2
+    :return Dp2: Fitted Dp2
+    """
+    try:
+        # determine high b-values and data for D
+        high_b = bvalues[bvalues >= cutoff[1]]
+        high_dw_data = dw_data[bvalues >= cutoff[1]]
+        bounds1 = ([bounds[0][1] * 1000., 0], [bounds[1][1] * 1000., 1])
+        # fit for S0' and D
+        params, _ = curve_fit(lambda b, Dt, int: int * np.exp(-b * Dt / 1000), high_b, high_dw_data,
+                              p0=(1, 1),
+                              bounds=bounds1)
+        Dt, Fp0 = params[0] / 1000, params[1]
+        # remove the diffusion part to only keep the pseudo-diffusion
+        dw_data = dw_data - Fp0 * np.exp(-bvalues * Dt)
+        # for another round:
+        high_b = bvalues[bvalues >= cutoff[0]]
+        high_dw_data = dw_data[bvalues >= cutoff[0]]
+        high_b2 = high_b[high_b <= cutoff[1]*1.5]
+        high_dw_data = high_dw_data[high_b <= cutoff[1]*1.5]
+        bounds1 = ([bounds[0][3] * 10., bounds[0][2]], [bounds[1][3] * 10., bounds[1][2]])
+        # fit for f0' and Dp1
+        params, _ = curve_fit(lambda b, Dt, int: int * np.exp(-b * Dt / 10), high_b2, high_dw_data,
+                              p0=(0.1, min(0.1)), bounds=bounds1)
+        Dp, Fp = params[0] / 10, params[1]
+        # remove the diffusion part to only keep the pseudo-diffusion
+        dw_data = dw_data - Fp * np.exp(-bvalues * Dp)
+        dw_data = dw_data[bvalues <= cutoff[0]*2]
+        bvalueslow = bvalues[bvalues <= cutoff[0]*2]
+        bounds1 = (bounds[0][5], bounds[1][5])
+        # fit for D*
+        Fp2 = 1 - Fp0 - Fp
+        params, _ = curve_fit(lambda b, Dp: Fp2 * np.exp(-b * Dp), bvalueslow, dw_data, p0=(0.1), bounds=bounds1)
+        Dp2 = params[0]
+        return Fp0, Dt, Fp, Dp, Fp2, Dp2
+    except:
+        # if fit fails, return zeros
+        # print('segnetned fit failed')
+        return 0., 0., 0., 0., 0., 0.
 
 
 def empirical_neg_log_prior(Dt0, Fp0, Dp0, S00=None):

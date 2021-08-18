@@ -61,139 +61,285 @@ class Net(nn.Module):
         if self.net_pars.width is 0:
             self.net_pars.width = len(bvalues)
         # define number of parameters being estimated
-        self.est_pars = 3
+        if self.net_pars.tri_exp:
+            self.est_pars = 5
+        else:
+            self.est_pars = 3
         if self.net_pars.fitS0:
             self.est_pars += 1
         # define module lists. If network is not parallel, we can do with 1 list, otherwise we need a list per parameter
         self.fc_layers0 = nn.ModuleList()
-        if self.net_pars.parallel:
+        if self.net_pars.parallel != 'single':
             self.fc_layers1 = nn.ModuleList()
             self.fc_layers2 = nn.ModuleList()
             self.fc_layers3 = nn.ModuleList()
+            if self.net_pars.tri_exp:
+                self.fc_layers4 = nn.ModuleList()
+                self.fc_layers5 = nn.ModuleList()
+
         # loop over the layers
         width = len(bvalues)
         for i in range(self.net_pars.depth):
             # extend with a fully-connected linear layer
             self.fc_layers0.extend([nn.Linear(width, self.net_pars.width)])
-            if self.net_pars.parallel:
+            if self.net_pars.parallel != 'single':
                 self.fc_layers1.extend([nn.Linear(width, self.net_pars.width)])
                 self.fc_layers2.extend([nn.Linear(width, self.net_pars.width)])
                 self.fc_layers3.extend([nn.Linear(width, self.net_pars.width)])
+                if self.net_pars.tri_exp:
+                    self.fc_layers4.extend([nn.Linear(width, self.net_pars.width)])
+                    self.fc_layers5.extend([nn.Linear(width, self.net_pars.width)])
             width = self.net_pars.width
             # if desired, add batch normalisation
             if self.net_pars.batch_norm:
                 self.fc_layers0.extend([nn.BatchNorm1d(self.net_pars.width)])
-                if self.net_pars.parallel:
+                if self.net_pars.parallel != 'single':
                     self.fc_layers1.extend([nn.BatchNorm1d(self.net_pars.width)])
                     self.fc_layers2.extend([nn.BatchNorm1d(self.net_pars.width)])
                     self.fc_layers3.extend([nn.BatchNorm1d(self.net_pars.width)])
+                    if self.net_pars.tri_exp:
+                        self.fc_layers4.extend([nn.BatchNorm1d(self.net_pars.width)])
+                        self.fc_layers5.extend([nn.BatchNorm1d(self.net_pars.width)])
             # add ELU units for non-linearity
             self.fc_layers0.extend([nn.ELU()])
-            if self.net_pars.parallel:
+            if self.net_pars.parallel != 'single':
                 self.fc_layers1.extend([nn.ELU()])
                 self.fc_layers2.extend([nn.ELU()])
                 self.fc_layers3.extend([nn.ELU()])
+                if self.net_pars.tri_exp:
+                    self.fc_layers4.extend([nn.ELU()])
+                    self.fc_layers5.extend([nn.ELU()])
             # if dropout is desired, add dropout regularisation
             if self.net_pars.dropout is not 0 and i is not (self.net_pars.depth - 1):
                 self.fc_layers0.extend([nn.Dropout(self.net_pars.dropout)])
-                if self.net_pars.parallel:
+                if self.net_pars.parallel != 'single':
                     self.fc_layers1.extend([nn.Dropout(self.net_pars.dropout)])
                     self.fc_layers2.extend([nn.Dropout(self.net_pars.dropout)])
                     self.fc_layers3.extend([nn.Dropout(self.net_pars.dropout)])
+                    if self.net_pars.tri_exp:
+                        self.fc_layers4.extend([nn.Dropout(self.net_pars.dropout)])
+                        self.fc_layers5.extend([nn.Dropout(self.net_pars.dropout)])
         # Final layer yielding output, with either 3 (fix S0) or 4 outputs of a single network, or 1 output
         # per network in case of parallel networks.
-        if self.net_pars.parallel:
+        if self.net_pars.parallel == 'parallel':
             self.encoder0 = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, 1))
             self.encoder1 = nn.Sequential(*self.fc_layers1, nn.Linear(self.net_pars.width, 1))
             self.encoder2 = nn.Sequential(*self.fc_layers2, nn.Linear(self.net_pars.width, 1))
+            if self.net_pars.tri_exp:
+                self.encoder3 = nn.Sequential(*self.fc_layers3, nn.Linear(self.net_pars.width, 1))
+                self.encoder4 = nn.Sequential(*self.fc_layers4, nn.Linear(self.net_pars.width, 1))
+                if self.net_pars.fitS0:
+                    self.encoder5 = nn.Sequential(*self.fc_layers5, nn.Linear(self.net_pars.width, 1))
             if self.net_pars.fitS0:
                 self.encoder3 = nn.Sequential(*self.fc_layers3, nn.Linear(self.net_pars.width, 1))
+        elif self.net_pars.parallel == 'semi_parallel':
+            self.encoder0 = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, 2 * 1))
+            self.encoder1 = nn.Sequential(*self.fc_layers1, nn.Linear(self.net_pars.width, 2 * 1))
+            self.encoder2 = nn.Sequential(*self.fc_layers2, nn.Linear(self.net_pars.width, 2 * 1))
+            if self.net_pars.tri_exp:
+                del self.fc_layers3
+                del self.fc_layers4
+                if self.net_pars.fitS0:
+                    del self.fc_layers5
+            else:
+                del self.encoder2
+                if self.net_pars.fitS0:
+                    self.encoder0 = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, 2 * 1))
+                    self.encoder1 = nn.Sequential(*self.fc_layers1, nn.Linear(self.net_pars.width, 2 * 1))
+                else:
+                    self.encoder0 = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, 2 * 1))
+                    self.encoder1 = nn.Sequential(*self.fc_layers1, nn.Linear(self.net_pars.width, 1))
         else:
-            self.encoder0 = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, self.est_pars))
+            self.encoder = nn.Sequential(*self.fc_layers0, nn.Linear(self.net_pars.width, self.est_pars * 1))
+
     def forward(self, X):
         # select constraint method
         if self.net_pars.con == 'sigmoid':
             # define constraints
-            Dmin = self.net_pars.cons_min[0]
-            Dmax = self.net_pars.cons_max[0]
-            fmin = self.net_pars.cons_min[1]
-            fmax = self.net_pars.cons_max[1]
-            Dpmin = self.net_pars.cons_min[2]
-            Dpmax = self.net_pars.cons_max[2]
-            S0min = self.net_pars.cons_min[3]
-            S0max = self.net_pars.cons_max[3]
+            if self.net_pars.tri_exp:
+                S0min = self.net_pars.cons_min[0] # actually f0min; but for generality I use S0
+                S0max = self.net_pars.cons_max[0] # actually f0max; but for generality I use S0
+                Dmin = self.net_pars.cons_min[1]
+                Dmax = self.net_pars.cons_max[1]
+                fmin = self.net_pars.cons_min[2]
+                fmax = self.net_pars.cons_max[2]
+                Dpmin = self.net_pars.cons_min[3]
+                Dpmax = self.net_pars.cons_max[3]
+                f2min = self.net_pars.cons_min[4]
+                f2max = self.net_pars.cons_max[4]
+                Dp2min = self.net_pars.cons_min[5]
+                Dp2max = self.net_pars.cons_max[5]
+            else:
+                Dmin = self.net_pars.cons_min[0]
+                Dmax = self.net_pars.cons_max[0]
+                fmin = self.net_pars.cons_min[1]
+                fmax = self.net_pars.cons_max[1]
+                Dpmin = self.net_pars.cons_min[2]
+                Dpmax = self.net_pars.cons_max[2]
+                S0min = self.net_pars.cons_min[3]
+                S0max = self.net_pars.cons_max[3]
             # this network constrains the estimated parameters between two values by taking the sigmoid.
             # Advantage is that the parameters are constrained and that the mapping is unique.
             # Disadvantage is that the gradients go to zero close to the prameter bounds.
             params0 = self.encoder0(X)
             # if parallel again use each param comes from a different output
-            if self.net_pars.parallel:
+            if self.net_pars.parallel == 'parallel':
                 params1 = self.encoder1(X)
                 params2 = self.encoder2(X)
-                if self.net_pars.fitS0:
+                if self.net_pars.tri_exp:
                     params3 = self.encoder3(X)
+                    params4 = self.encoder4(X)
+                    if self.net_pars.fitS0:
+                        params5 = self.encoder5(X)
+                elif self.net_pars.fitS0:
+                    params3 = self.encoder3(X)
+            elif self.net_pars.parallel == 'semi_parallel':
+                params2 = self.encoder1(X)[:, 0].unsqueeze(1)
+                params1 = params0[:, 1].unsqueeze(1)
+                params0 = params0[:, 0].unsqueeze(1)
+                if self.net_pars.tri_exp:
+                    params3 = self.encoder2(X)[:, 0].unsqueeze(1)
+                    params4 = self.encoder2(X)[:, 1].unsqueeze(1)
+                    if self.net_pars.fitS0:
+                        params5 = self.encoder1(X)[:, 1].unsqueeze(1)
+                elif self.net_pars.fitS0:
+                    params3 = self.encoder1(X)[:, 1].unsqueeze(1)
+
         elif self.net_pars.con == 'none' or self.net_pars.con == 'abs':
             if self.net_pars.con == 'abs':
                 # this network constrains the estimated parameters to be positive by taking the absolute.
                 # Advantage is that the parameters are constrained and that the derrivative of the function remains
                 # constant. Disadvantage is that -x=x, so could become unstable.
                 params0 = torch.abs(self.encoder0(X))
-                if self.net_pars.parallel:
+                if self.net_pars.parallel == 'parallel':
                     params1 = torch.abs(self.encoder1(X))
                     params2 = torch.abs(self.encoder2(X))
-                    if self.net_pars.fitS0:
+                    if self.net_pars.tri_exp:
                         params3 = torch.abs(self.encoder3(X))
+                        params4 = torch.abs(self.encoder4(X))
+                        if self.net_pars.fitS0:
+                            params5 = torch.abs(self.encoder5(X))
+                    elif self.net_pars.fitS0:
+                        params3 = torch.abs(self.encoder3(X))
+                elif self.net_pars.parallel == 'semi_parallel':
+                    params2 = torch.abs(self.encoder1(X)[:, 0].unsqueeze(1))
+                    params1 = torch.abs(params0[:, 1].unsqueeze(1))
+                    params0 = torch.abs(params0[:, 0].unsqueeze(1))
+                    if self.net_pars.tri_exp:
+                        params3 = torch.abs(self.encoder2(X)[:,  0].unsqueeze(1))
+                        params3 = torch.abs(self.encoder2(X)[:,  1].unsqueeze(1))
+                        if self.net_pars.fitS0:
+                            params5 = torch.abs(self.encoder1(X)[:,  1].unsqueeze(1))
+                    elif self.net_pars.fitS0:
+                        params3 = torch.abs(self.encoder1(X)[:, 1].unsqueeze(1))
             else:
                 # this network is not constraint
                 params0 = self.encoder0(X)
-                if self.net_pars.parallel:
+                if self.net_pars.parallel == 'parallel':
                     params1 = self.encoder1(X)
                     params2 = self.encoder2(X)
-                    if self.net_pars.fitS0:
+                    if self.net_pars.tri_exp:
                         params3 = self.encoder3(X)
+                        params4 = self.encoder4(X)
+                        if self.net_pars.fitS0:
+                            params5 = self.encoder5(X)
+                    elif self.net_pars.fitS0:
+                        params3 = self.encoder3(X)
+                elif self.net_pars.parallel == 'semi_parallel':
+                    params2 = self.encoder1(X)[:,  0].unsqueeze(1)
+                    params1 = params0[:,  1].unsqueeze(1)
+                    params0 = params0[:,  0].unsqueeze(1)
+                    if self.net_pars.tri_exp:
+                        params3 = self.encoder2(X)[:,  0].unsqueeze(1)
+                        params4 = self.encoder2(X)[:,  1].unsqueeze(1)
+                        if self.net_pars.fitS0:
+                            params5 = self.encoder1(X)[:,  1].unsqueeze(1)
+                    elif self.net_pars.fitS0:
+                        params3 = self.encoder1(X)[:,  1].unsqueeze(1)
         else:
             raise Exception('the chose parameter constraint is not implemented. Try ''sigmoid'', ''none'' or ''abs''')
         X_temp=[]
         if self.net_pars.con == 'sigmoid':
             # applying constraints
-            if self.net_pars.parallel:
+            if self.net_pars.parallel == 'parallel' or self.net_pars.parallel == 'semi_parallel':
                 Dp = Dpmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
                 Dt = Dmin + torch.sigmoid(params1[:, 0].unsqueeze(1)) * (Dmax - Dmin)
                 Fp = fmin + torch.sigmoid(params2[:, 0].unsqueeze(1)) * (fmax - fmin)
-                if self.net_pars.fitS0:
+                if self.net_pars.tri_exp:
+                    Dp2 = Dp2min + torch.sigmoid(params3[:, 0].unsqueeze(1)) * (Dp2max - Dp2min)
+                    Fp2 = f2min + torch.sigmoid(params4[:, 0].unsqueeze(1)) * (f2max - f2min)
+                    if self.net_pars.fitS0:
+                        S0 = S0min + torch.sigmoid(params5[:, 0].unsqueeze(1)) * (S0max - S0min)
+                elif self.net_pars.fitS0:
                     S0 = S0min + torch.sigmoid(params3[:, 0].unsqueeze(1)) * (S0max - S0min)
             else:
                 Dp = Dpmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
                 Dt = Dmin + torch.sigmoid(params0[:, 1].unsqueeze(1)) * (Dmax - Dmin)
                 Fp = fmin + torch.sigmoid(params0[:, 2].unsqueeze(1)) * (fmax - fmin)
-                if self.net_pars.fitS0:
+                if self.net_pars.tri_exp:
+                    Fp2 = fmin + torch.sigmoid(params0[:, 3].unsqueeze(1)) * (f2max - f2min)
+                    Dp2 = Dpmin + torch.sigmoid(params0[:, 4].unsqueeze(1)) * (Dp2max - Dp2min)
+                    if self.net_pars.fitS0:
+                        S0 = S0min + torch.sigmoid(params0[:, 5].unsqueeze(1)) * (
+                                S0max - S0min)
+                elif self.net_pars.fitS0:
                     S0 = S0min + torch.sigmoid(params0[:, 3].unsqueeze(1)) * (S0max - S0min)
         elif self.net_pars.con == 'none' or self.net_pars.con == 'abs':
-            if self.net_pars.parallel:
+            if self.net_pars.parallel == 'parallel' or self.net_pars.parallel == 'semi_parallel':
                 Dp = params0[:, 0].unsqueeze(1)
                 Dt = params1[:, 0].unsqueeze(1)
                 Fp = params2[:, 0].unsqueeze(1)
-                if self.net_pars.fitS0:
+                if self.net_pars.tri_exp:
+                    Dp2 = params3[:, 0].unsqueeze(1)
+                    Fp2 = params4[:, 0].unsqueeze(1)
+                    if self.net_pars.fitS0:
+                        S0 = params5[:, 0].unsqueeze(1)
+                elif self.net_pars.fitS0:
                     S0 = params3[:, 0].unsqueeze(1)
             else:
                 Dp = params0[:, 0].unsqueeze(1)
                 Dt = params0[:, 1].unsqueeze(1)
                 Fp = params0[:, 2].unsqueeze(1)
-                if self.net_pars.fitS0:
+                if self.net_pars.tri_exp:
+                    Dp2 = params0[:, 3].unsqueeze(1)
+                    Fp2 = params0[:, 4].unsqueeze(1)
+                    if self.net_pars.fitS0:
+                        S0 = params0[:, 5].unsqueeze(1)
+                elif self.net_pars.fitS0:
                     S0 = params0[:, 3].unsqueeze(1)
         # here we estimate X, the signal as function of b-values given the predicted IVIM parameters. Although
         # this parameter is not interesting for prediction, it is used in the loss function
         # in this a>0 case, we fill up the predicted signal of the neighbouring voxels too, as these are used in
         # the loss function.
-        if self.net_pars.fitS0:
-            X_temp.append(S0 * (Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
+        if self.net_pars.tri_exp:
+            if self.net_pars.fitS0:
+                X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + Fp2 * torch.exp(-self.bvalues * Dp2) +
+                                S0 * torch.exp(-self.bvalues * Dt))) #note S0 is actually a placeholder for fp0
+            else:
+                X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + Fp2 * torch.exp(-self.bvalues * Dp2) +
+                                    (1 - Fp - Fp2) * torch.exp(-self.bvalues * Dt)))
         else:
-            X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
+            if self.net_pars.fitS0:
+                if self.net_pars.parallel == 'semi_parallel':
+                    X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + S0 * torch.exp(-self.bvalues * Dt)))
+                else:
+                    X_temp.append(S0 * (Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
+            else:
+                X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
         X = torch.cat(X_temp,dim=1)
-        if self.net_pars.fitS0:
-            return X, Dt, Fp, Dp, S0
+        if self.net_pars.tri_exp:
+            if self.net_pars.fitS0:
+                return X, S0+Fp2+Fp, Dt, Fp/(S0+Fp2+Fp), Dp, Fp2/(S0+Fp2+Fp), Dp2
+            else:
+                return X, torch.ones(len(Dt)), Dt, Fp, Dp, Fp2, Dp2
         else:
-            return X, Dt, Fp, Dp, torch.ones(len(Dt))
+            if self.net_pars.fitS0:
+                if self.net_pars.parallel == 'semi_parallel':
+                    return X, Dt, Fp/(S0+Fp), Dp, S0+Fp
+                else:
+                    return X, Dt, Fp, Dp, S0
+            else:
+                return X, Dt, Fp, Dp, torch.ones(len(Dt))
 
 
 def learn_IVIM(X_train, bvalues, arg, net=None):
@@ -211,15 +357,14 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
     arg = checkarg(arg)
 
     ## normalise the signal to b=0 and remove data with nans
-    S0 = np.mean(X_train[:, bvalues == 0], axis=1).astype('<f')
-    X_train = X_train / S0[:, None]
-    np.delete(X_train, isnan(np.mean(X_train, axis=1)), axis=0)
+    X_train = normalise(X_train, bvalues, arg)
     # removing non-IVIM-like data; this often gets through when background data is not correctly masked
     # Estimating IVIM parameters in these data is meaningless anyways.
-    X_train = X_train[np.percentile(X_train[:, bvalues < 50], 95, axis=1) < 1.3]
-    X_train = X_train[np.percentile(X_train[:, bvalues > 50], 95, axis=1) < 1.2]
-    X_train = X_train[np.percentile(X_train[:, bvalues > 150], 95, axis=1) < 1.0]
-    X_train[X_train > 1.5] = 1.5
+    if not arg.norm_data_full:
+        X_train = X_train[np.percentile(X_train[:, bvalues < 50], 95, axis=1) < 1.3]
+        X_train = X_train[np.percentile(X_train[:, bvalues > 50], 95, axis=1) < 1.2]
+        X_train = X_train[np.percentile(X_train[:, bvalues > 150], 95, axis=1) < 1.0]
+        X_train[X_train > 1.5] = 1.5
 
     # initialising the network of choice using the input argument arg
     if net is None:
@@ -234,6 +379,9 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
         criterion = nn.MSELoss(reduction='mean').to(arg.train_pars.device)
     elif arg.train_pars.loss_fun == 'L1':
         criterion = nn.L1Loss(reduction='mean').to(arg.train_pars.device)
+    elif arg.train_pars.loss_fun == 'mixed':
+        criterion = nn.L1Loss(reduction='mean').to(arg.train_pars.device) + 0.5 * nn.MSELoss(reduction='mean').to(arg.train_pars.device)
+
 
     # splitting data into learning and validation set; subsequently initialising the Dataloaders
     split = int(np.floor(len(X_train) * arg.train_pars.split))
@@ -286,8 +434,10 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
             # put batch on GPU if pressent
             X_batch = X_batch.to(arg.train_pars.device)
             ## forward + backward + optimize
-            X_pred, Dt_pred, Fp_pred, Dp_pred, S0pred = net(X_batch)
-            # removing nans and too high/low predictions to prevent overshooting
+            if arg.net_pars.tri_exp:
+                X_pred, _, _, Fp_pred, Dp_pred, _, _ = net(X_batch)
+            else:
+                X_pred, _, Fp_pred, Dp_pred, _ = net(X_batch)            # removing nans and too high/low predictions to prevent overshooting
             X_pred[isnan(X_pred)] = 0
             X_pred[X_pred < 0] = 0
             X_pred[X_pred > 3] = 3
@@ -313,7 +463,10 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
             optimizer.zero_grad()
             X_batch = X_batch.to(arg.train_pars.device)
             # do prediction, only look at predicted IVIM signal
-            X_pred, _, _, _, _ = net(X_batch)
+            if arg.net_pars.tri_exp:
+                X_pred, _, _, _, _, _, _ = net(X_batch)
+            else:
+                X_pred, _, _, _, _ = net(X_batch)            # removing nans and too high/low predictions to prevent overshooting
             X_pred[isnan(X_pred)] = 0
             X_pred[X_pred < 0] = 0
             X_pred[X_pred > 3] = 3
@@ -375,25 +528,15 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
 
 
 def load_optimizer(net, arg):
-    if arg.net_pars.parallel:
-        if arg.net_pars.fitS0:
-            par_list = [{'params': net.encoder0.parameters(), 'lr': arg.train_pars.lr},
-                        {'params': net.encoder1.parameters()}, {'params': net.encoder2.parameters()},
-                        {'params': net.encoder3.parameters()}]
-        else:
-            par_list = [{'params': net.encoder0.parameters(), 'lr': arg.train_pars.lr},
-                        {'params': net.encoder1.parameters()}, {'params': net.encoder2.parameters()}]
-    else:
-        par_list = [{'params': net.encoder0.parameters()}]
     if arg.train_pars.optim == 'adam':
-        optimizer = optim.Adam(par_list, lr=arg.train_pars.lr, weight_decay=1e-4)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=arg.train_pars.lr, weight_decay=1e-4, amsgrad=True)
     elif arg.train_pars.optim == 'sgd':
-        optimizer = optim.SGD(par_list, lr=arg.train_pars.lr, momentum=0.9, weight_decay=1e-4)
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=arg.train_pars.lr, momentum=0.9, weight_decay=1e-4)
     elif arg.train_pars.optim == 'adagrad':
-        optimizer = torch.optim.Adagrad(par_list, lr=arg.train_pars.lr, weight_decay=1e-4)
+        optimizer = torch.optim.Adagrad(filter(lambda p: p.requires_grad, net.parameters()), lr=arg.train_pars.lr, weight_decay=1e-4)
     if arg.train_pars.scheduler:
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2,
-                                                         patience=round(arg.train_pars.patience / 2))
+                                                         patience=round(arg.train_pars.plateau_size))
         return optimizer, scheduler
     else:
         return optimizer
@@ -412,10 +555,7 @@ def predict_IVIM(data, bvalues, net, arg):
     arg = checkarg(arg)
 
     ## normalise the signal to b=0 and remove data with nans
-    S0 = np.mean(data[:, bvalues == 0], axis=1).astype('<f')
-    data = data / S0[:, None]
-    np.delete(data, isnan(np.mean(data, axis=1)), axis=0)
-    # skip nans.
+    data = normalise(data, bvalues, arg)
     mylist = isnan(np.mean(data, axis=1))
     sels = [not i for i in mylist]
     # remove data with non-IVIM-like behaviour. Estimating IVIM parameters in these data is meaningless anyways.
@@ -433,6 +573,10 @@ def predict_IVIM(data, bvalues, net, arg):
     Dt = np.array([])
     Fp = np.array([])
     S0 = np.array([])
+    if arg.net_pars.tri_exp:
+        Fp2 = np.array([])
+        Dp2 = np.array([])
+
     # initialise dataloader. Batch size can be way larger as we are still training.
     inferloader = utils.DataLoader(torch.from_numpy(data.astype(np.float32)),
                                    batch_size=2056,
@@ -443,7 +587,12 @@ def predict_IVIM(data, bvalues, net, arg):
         for i, X_batch in enumerate(tqdm(inferloader, position=0, leave=True), 0):
             X_batch = X_batch.to(arg.train_pars.device)
             # here the signal is predicted. Note that we now are interested in the parameters and no longer in the predicted signal decay.
-            _, Dtt, Fpt, Dpt, S0t = net(X_batch)
+            if arg.net_pars.tri_exp:
+                _,  S0t, Dtt, Fpt, Dpt, Fp2t, Dp2t = net(X_batch)
+                Dp2 = np.append(Dp2, (Dp2t.cpu()).numpy())
+                Fp2 = np.append(Fp2, (Fp2t.cpu()).numpy())
+            else:
+                _, Dtt, Fpt, Dpt, S0t = net(X_batch)
             # Quick and dirty solution to deal with networks not predicting S0
             try:
                 S0 = np.append(S0, (S0t.cpu()).numpy())
@@ -455,12 +604,22 @@ def predict_IVIM(data, bvalues, net, arg):
     # The 'abs' and 'none' constraint networks have no way of figuring out what is D and D* a-priori. However, they do
     # tend to pick one output parameter for D or D* consistently within the network. If the network has swapped D and
     # D*, we swap them back here.
+    if arg.net_pars.tri_exp:
+        if np.mean(Dp2) < np.mean(Dp):
+            Dp22 = copy.deepcopy(Dp2)
+            Dp2 = Dp
+            Dp = Dp22
+            Fp22 = copy.deepcopy(Fp2)
+            Fp2 = Fp
+            Fp = Fp22
     if np.mean(Dp) < np.mean(Dt):
         Dp22 = copy.deepcopy(Dt)
         Dt = Dp
         Dp = Dp22
-        Fp = 1 - Fp
-    # here we correct for the data that initially was removed as it did not have IVIM behaviour, by returning zero
+        if arg.net_pars.tri_exp:
+            Fp = 1 - Fp - Fp2
+        else:
+            Fp = 1 - Fp    # here we correct for the data that initially was removed as it did not have IVIM behaviour, by returning zero
     # estimates
     Dptrue = np.zeros(lend)
     Dttrue = np.zeros(lend)
@@ -473,7 +632,31 @@ def predict_IVIM(data, bvalues, net, arg):
     del inferloader
     if arg.train_pars.use_cuda:
         torch.cuda.empty_cache()
-    return [Dttrue, Fptrue, Dptrue, S0true]
+    if arg.net_pars.tri_exp:
+        Dp2true = np.zeros(lend)
+        Fp2true = np.zeros(lend)
+        Dp2true[sels] = Dp2
+        Fp2true[sels] = Fp2
+        return [S0true, Dttrue, Fptrue, Dptrue, Fp2true, Dp2true]
+    else:
+        return [Dttrue, Fptrue, Dptrue, S0true]
+
+
+def normalise(X_train,bvalues,arg, bref=0):
+    try:
+        ## normalise the signal to b=0 and remove data with nans
+        if arg.norm_data_full:
+            S0 = np.mean(X_train, axis=1).astype('<f')
+        else:
+            S0 = np.mean(X_train[:, bvalues == bref], axis=1).astype('<f')
+        X_train = X_train / S0[:, None]
+        np.delete(X_train, isnan(np.mean(X_train, axis=1)), axis=0)
+        # normalise neighbours
+    except:
+        S0 = torch.mean(X_train[:, bvalues == bref], axis=1)
+        X_train = X_train / S0[:, None]
+        np.delete(X_train, isnan(torch.mean(X_train, axis=1)), axis=0)
+    return X_train
 
 
 def isnan(x):
@@ -599,6 +782,9 @@ def checkarg_train_pars(arg):
         arg.use_cuda = torch.cuda.is_available()
     if not hasattr(arg, 'device'):
         arg.device = torch.device("cuda:0" if arg.use_cuda else "cpu")
+    if not hasattr(arg, 'plateau_size'):
+        warnings.warn('arg.train.plateau_size not defined. Using default of 20')
+        arg.plateau_size = 20
     return arg
 
 
@@ -611,16 +797,10 @@ def checkarg_net_pars(arg):
         arg.batch_norm = True  # False/True turns on batch normalistion
     if not hasattr(arg,'parallel'):
         warnings.warn('arg.net_pars.parallel not defined. Using default of True')
-        arg.parallel = True  # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+        arg.parallel = 'parallel'  # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
     if not hasattr(arg,'con'):
         warnings.warn('arg.net_pars.con not defined. Using default of ''sigmoid''')
         arg.con = 'sigmoid'  # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
-    if not hasattr(arg,'cons_min'):
-        warnings.warn('arg.net_pars.cons_min not defined. Using default values of  [-0.0001, -0.05, -0.05, 0.7]')
-        arg.cons_min = [-0.0001, -0.05, -0.05, 0.7, -0.05, 0.06]  # Dt, Fp, Ds, S0 F2p, D2*
-    if not hasattr(arg,'cons_max'):
-        warnings.warn('arg.net_pars.cons_max not defined. Using default values of  [-0.0001, -0.05, -0.05, 0.7]')
-        arg.cons_max = [0.005, 0.7, 0.3, 1.3, 0.3, 0.3]  # Dt, Fp, Ds, S0
     if not hasattr(arg,'fitS0'):
         warnings.warn('arg.net_pars.parallel not defined. Using default of False')
         arg.fitS0 = False  # indicates whether to fix S0 to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
@@ -630,6 +810,23 @@ def checkarg_net_pars(arg):
     if not hasattr(arg, 'width'):
         warnings.warn('arg.net_pars.width not defined. Using default of number of b-values')
         arg.width = 0
+    if not hasattr(arg, 'tri_exp'):
+        warnings.warn('arg.net_pars.tri_exp not defined. Using default of False')
+        arg.tri_exp = False
+    if not hasattr(arg,'cons_min'):
+        if arg.tri_exp:
+            warnings.warn('arg.net_pars.cons_min not defined. Using default values [0., 0.0003, 0.0, 0.003, 0.0, 0.08]')
+            arg.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08]  #
+        else:
+            warnings.warn('arg.net_pars.cons_min not defined. Using default values [0, 0, 0.005, 0.7]')
+            arg.cons_min = [0, 0, 0.005, 0.7]  #
+    if not hasattr(arg,'cons_max'):
+        if arg.tri_exp:
+            warnings.warn('arg.net_pars.cons_max not defined. Using default values [2.5, 0.003, 1, 0.08, 1, 5]')
+            arg.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  #
+        else:
+            warnings.warn('arg.net_pars.cons_max not defined. Using default values [0.005, 0.7, 0.2, 2.0]')
+            arg.cons_max = [0.005, 0.7, 0.2, 2.0]  #
     return arg
 
 
@@ -678,6 +875,9 @@ def checkarg(arg):
     if not hasattr(arg, 'fit'):
         warnings.warn('arg no lsq. Using default initialisation')
         arg.fit = lsqfit()
+    if not hasattr(arg, 'norm_data_full'):
+        warnings.warn('arg no norm_data_full. Using default of False')
+        arg.norm_data_full = False
     arg.net_pars=checkarg_net_pars(arg.net_pars)
     arg.train_pars = checkarg_train_pars(arg.train_pars)
     arg.sim = checkarg_sim(arg.sim)
@@ -701,6 +901,7 @@ class train_pars:
         self.use_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if self.use_cuda else "cpu")
         self.select_best = False
+        self.plateau_size = 20
 
 
 class net_pars:
@@ -709,7 +910,8 @@ class net_pars:
         # the optimized network settings
         self.dropout = 0.1 #0.0/0.1 chose how much dropout one likes. 0=no dropout; internet says roughly 20% (0.20) is good, although it also states that smaller networks might desire smaller amount of dropout
         self.batch_norm = True # False/True turns on batch normalistion
-        self.parallel = True # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+        self.parallel = 'parallel' # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
+        self.tri_exp = False
         self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
         #### only if sigmoid constraint is used!
         self.cons_min = [-0.0001, -0.05, -0.05, 0.7]  # Dt, Fp, Ds, S0
