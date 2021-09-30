@@ -157,8 +157,8 @@ class Net(nn.Module):
         if self.net_pars.con == 'sigmoid':
             # define constraints
             if self.net_pars.tri_exp:
-                S0min = self.net_pars.cons_min[0] # actually f0min; but for generality I use S0
-                S0max = self.net_pars.cons_max[0] # actually f0max; but for generality I use S0
+                f0min = self.net_pars.cons_min[0]
+                f0max = self.net_pars.cons_max[0]
                 Dmin = self.net_pars.cons_min[1]
                 Dmax = self.net_pars.cons_max[1]
                 fmin = self.net_pars.cons_min[2]
@@ -176,8 +176,8 @@ class Net(nn.Module):
                 fmax = self.net_pars.cons_max[1]
                 Dpmin = self.net_pars.cons_min[2]
                 Dpmax = self.net_pars.cons_max[2]
-                S0min = self.net_pars.cons_min[3]
-                S0max = self.net_pars.cons_max[3]
+                f0min = self.net_pars.cons_min[3]
+                f0max = self.net_pars.cons_max[3]
             # this network constrains the estimated parameters between two values by taking the sigmoid.
             # Advantage is that the parameters are constrained and that the mapping is unique.
             # Disadvantage is that the gradients go to zero close to the prameter bounds.
@@ -227,7 +227,7 @@ class Net(nn.Module):
                     params0 = torch.abs(params0[:, 0].unsqueeze(1))
                     if self.net_pars.tri_exp:
                         params3 = torch.abs(self.encoder2(X)[:,  0].unsqueeze(1))
-                        params3 = torch.abs(self.encoder2(X)[:,  1].unsqueeze(1))
+                        params4 = torch.abs(self.encoder2(X)[:,  1].unsqueeze(1))
                         if self.net_pars.fitS0:
                             params5 = torch.abs(self.encoder1(X)[:,  1].unsqueeze(1))
                     elif self.net_pars.fitS0:
@@ -262,16 +262,16 @@ class Net(nn.Module):
         if self.net_pars.con == 'sigmoid':
             # applying constraints
             if self.net_pars.parallel == 'parallel' or self.net_pars.parallel == 'semi_parallel':
-                Dp = Dpmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
-                Dt = Dmin + torch.sigmoid(params1[:, 0].unsqueeze(1)) * (Dmax - Dmin)
-                Fp = fmin + torch.sigmoid(params2[:, 0].unsqueeze(1)) * (fmax - fmin)
+                Dt = Dmin + torch.sigmoid(params2[:, 0].unsqueeze(1)) * (Dmax - Dmin)
+                Fp = fmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (fmax - fmin)
+                Dp = Dpmin + torch.sigmoid(params1[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
                 if self.net_pars.tri_exp:
                     Dp2 = Dp2min + torch.sigmoid(params3[:, 0].unsqueeze(1)) * (Dp2max - Dp2min)
                     Fp2 = f2min + torch.sigmoid(params4[:, 0].unsqueeze(1)) * (f2max - f2min)
                     if self.net_pars.fitS0:
-                        S0 = S0min + torch.sigmoid(params5[:, 0].unsqueeze(1)) * (S0max - S0min)
+                        f0 = f0min + torch.sigmoid(params5[:, 0].unsqueeze(1)) * (f0max - f0min)
                 elif self.net_pars.fitS0:
-                    S0 = S0min + torch.sigmoid(params3[:, 0].unsqueeze(1)) * (S0max - S0min)
+                    f0 = f0min + torch.sigmoid(params3[:, 0].unsqueeze(1)) * (f0max - f0min)
             else:
                 Dp = Dpmin + torch.sigmoid(params0[:, 0].unsqueeze(1)) * (Dpmax - Dpmin)
                 Dt = Dmin + torch.sigmoid(params0[:, 1].unsqueeze(1)) * (Dmax - Dmin)
@@ -280,22 +280,22 @@ class Net(nn.Module):
                     Fp2 = fmin + torch.sigmoid(params0[:, 3].unsqueeze(1)) * (f2max - f2min)
                     Dp2 = Dpmin + torch.sigmoid(params0[:, 4].unsqueeze(1)) * (Dp2max - Dp2min)
                     if self.net_pars.fitS0:
-                        S0 = S0min + torch.sigmoid(params0[:, 5].unsqueeze(1)) * (
-                                S0max - S0min)
+                        f0 = f0min + torch.sigmoid(params0[:, 5].unsqueeze(1)) * (
+                                f0max - f0min)
                 elif self.net_pars.fitS0:
-                    S0 = S0min + torch.sigmoid(params0[:, 3].unsqueeze(1)) * (S0max - S0min)
+                    f0 = f0min + torch.sigmoid(params0[:, 3].unsqueeze(1)) * (f0max - f0min)
         elif self.net_pars.con == 'none' or self.net_pars.con == 'abs':
             if self.net_pars.parallel == 'parallel' or self.net_pars.parallel == 'semi_parallel':
-                Dp = params0[:, 0].unsqueeze(1)
-                Dt = params1[:, 0].unsqueeze(1)
-                Fp = params2[:, 0].unsqueeze(1)
+                Dt = params2[:, 0].unsqueeze(1)
+                Fp = params0[:, 0].unsqueeze(1)
+                Dp = params1[:, 0].unsqueeze(1)
                 if self.net_pars.tri_exp:
                     Dp2 = params3[:, 0].unsqueeze(1)
                     Fp2 = params4[:, 0].unsqueeze(1)
                     if self.net_pars.fitS0:
-                        S0 = params5[:, 0].unsqueeze(1)
+                        f0 = params5[:, 0].unsqueeze(1)
                 elif self.net_pars.fitS0:
-                    S0 = params3[:, 0].unsqueeze(1)
+                    f0 = params3[:, 0].unsqueeze(1)
             else:
                 Dp = params0[:, 0].unsqueeze(1)
                 Dt = params0[:, 1].unsqueeze(1)
@@ -304,9 +304,9 @@ class Net(nn.Module):
                     Dp2 = params0[:, 3].unsqueeze(1)
                     Fp2 = params0[:, 4].unsqueeze(1)
                     if self.net_pars.fitS0:
-                        S0 = params0[:, 5].unsqueeze(1)
+                        f0 = params0[:, 5].unsqueeze(1)
                 elif self.net_pars.fitS0:
-                    S0 = params0[:, 3].unsqueeze(1)
+                    f0 = params0[:, 3].unsqueeze(1)
         # here we estimate X, the signal as function of b-values given the predicted IVIM parameters. Although
         # this parameter is not interesting for prediction, it is used in the loss function
         # in this a>0 case, we fill up the predicted signal of the neighbouring voxels too, as these are used in
@@ -314,30 +314,24 @@ class Net(nn.Module):
         if self.net_pars.tri_exp:
             if self.net_pars.fitS0:
                 X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + Fp2 * torch.exp(-self.bvalues * Dp2) +
-                                S0 * torch.exp(-self.bvalues * Dt))) #note S0 is actually a placeholder for fp0
+                                f0 * torch.exp(-self.bvalues * Dt)))
             else:
                 X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + Fp2 * torch.exp(-self.bvalues * Dp2) +
                                     (1 - Fp - Fp2) * torch.exp(-self.bvalues * Dt)))
         else:
             if self.net_pars.fitS0:
-                if self.net_pars.parallel == 'semi_parallel':
-                    X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + S0 * torch.exp(-self.bvalues * Dt)))
-                else:
-                    X_temp.append(S0 * (Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
+                X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + f0 * torch.exp(-self.bvalues * Dt)))
             else:
                 X_temp.append((Fp * torch.exp(-self.bvalues * Dp) + (1 - Fp) * torch.exp(-self.bvalues * Dt)))
         X = torch.cat(X_temp,dim=1)
         if self.net_pars.tri_exp:
             if self.net_pars.fitS0:
-                return X, S0+Fp2+Fp, Dt, Fp/(S0+Fp2+Fp), Dp, Fp2/(S0+Fp2+Fp), Dp2
+                return X, f0+Fp2+Fp, Dt, Fp/(f0+Fp2+Fp), Dp, Fp2/(f0+Fp2+Fp), Dp2
             else:
                 return X, torch.ones(len(Dt)), Dt, Fp, Dp, Fp2, Dp2
         else:
             if self.net_pars.fitS0:
-                if self.net_pars.parallel == 'semi_parallel':
-                    return X, Dt, Fp/(S0+Fp), Dp, S0+Fp
-                else:
-                    return X, Dt, Fp, Dp, S0
+                return X, Dt, Fp/(f0+Fp), Dp, f0+Fp
             else:
                 return X, Dt, Fp, Dp, torch.ones(len(Dt))
 

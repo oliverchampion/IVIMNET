@@ -56,7 +56,7 @@ class net_pars:
                 self.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08] # F0', D0, F1', D1, F2', D2
                 self.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  # F0', D0, F1', D1, F2', D2
             else:
-                self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
+                self.cons_min = [0, 0, 0.005, 0]  # Dt, Fp, Ds, S0
                 self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
             ####
             self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
@@ -74,8 +74,8 @@ class net_pars:
                 self.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08] # F0', D0, F1', D1, F2', D2
                 self.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  # F0', D0, F1', D1, F2', D2
             else:
-                self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
-                self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
+                self.cons_min = [0, 0, 0.005, 0]  # Dt, Fp, Ds, f0
+                self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, f0
             ####
             self.fitS0 = False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
             self.depth = 3 # number of layers
@@ -92,8 +92,8 @@ class net_pars:
                 self.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08] # F0', D0, F1', D1, F2', D2
                 self.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  # F0', D0, F1', D1, F2', D2
             else:
-                self.cons_min = [0, 0, 0.005, 0.7]  # Dt, Fp, Ds, S0
-                self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
+                self.cons_min = [0, 0, 0.005, 0]  # Dt, Fp, Ds, f0
+                self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, f0
             ####
             self.fitS0 = False # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
             self.depth = 4 # number of layers
