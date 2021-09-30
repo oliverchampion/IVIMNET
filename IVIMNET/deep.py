@@ -614,6 +614,14 @@ def predict_IVIM(data, bvalues, net, arg):
             Fp = 1 - Fp - Fp2
         else:
             Fp = 1 - Fp    # here we correct for the data that initially was removed as it did not have IVIM behaviour, by returning zero
+    if arg.net_pars.tri_exp:
+        if np.mean(Dp2) < np.mean(Dp):
+            Dp22 = copy.deepcopy(Dp2)
+            Dp2 = Dp
+            Dp = Dp22
+            Fp22 = copy.deepcopy(Fp2)
+            Fp2 = Fp
+            Fp = Fp22
     # estimates
     Dptrue = np.zeros(lend)
     Dttrue = np.zeros(lend)
