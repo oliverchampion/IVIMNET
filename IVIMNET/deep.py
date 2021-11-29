@@ -523,7 +523,7 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
 
 def load_optimizer(net, arg):
     if arg.train_pars.optim == 'adam':
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=arg.train_pars.lr, weight_decay=1e-4, amsgrad=True)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=arg.train_pars.lr, weight_decay=1e-4)#, amsgrad=True)
     elif arg.train_pars.optim == 'sgd':
         optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=arg.train_pars.lr, momentum=0.9, weight_decay=1e-4)
     elif arg.train_pars.optim == 'adagrad':
@@ -592,24 +592,24 @@ def predict_IVIM(data, bvalues, net, arg):
                 S0 = np.append(S0, (S0t.cpu()).numpy())
             except:
                 S0 = np.append(S0, S0t)
-            Dp = np.append(Dp, (Dpt.cpu()).numpy())
             Dt = np.append(Dt, (Dtt.cpu()).numpy())
             Fp = np.append(Fp, (Fpt.cpu()).numpy())
+            Dp = np.append(Dp, (Dpt.cpu()).numpy())
     # The 'abs' and 'none' constraint networks have no way of figuring out what is D and D* a-priori. However, they do
     # tend to pick one output parameter for D or D* consistently within the network. If the network has swapped D and
     # D*, we swap them back here.
     if arg.net_pars.tri_exp:
         if np.mean(Dp2) < np.mean(Dp):
             Dp22 = copy.deepcopy(Dp2)
-            Dp2 = Dp
-            Dp = Dp22
+            Dp2 = copy.deepcopy(Dp)
+            Dp = copy.deepcopy(Dp22)
             Fp22 = copy.deepcopy(Fp2)
-            Fp2 = Fp
-            Fp = Fp22
+            Fp2 = copy.deepcopy(Fp)
+            Fp = copy.deepcopy(Fp22)
     if np.mean(Dp) < np.mean(Dt):
         Dp22 = copy.deepcopy(Dt)
-        Dt = Dp
-        Dp = Dp22
+        Dt = copy.deepcopy(Dp)
+        Dp = copy.deepcopy(Dp22)
         if arg.net_pars.tri_exp:
             Fp = 1 - Fp - Fp2
         else:
@@ -617,11 +617,11 @@ def predict_IVIM(data, bvalues, net, arg):
     if arg.net_pars.tri_exp:
         if np.mean(Dp2) < np.mean(Dp):
             Dp22 = copy.deepcopy(Dp2)
-            Dp2 = Dp
-            Dp = Dp22
+            Dp2 = copy.deepcopy(Dp)
+            Dp = copy.deepcopy(Dp22)
             Fp22 = copy.deepcopy(Fp2)
-            Fp2 = Fp
-            Fp = Fp22
+            Fp2 = copy.deepcopy(Fp)
+            Fp = copy.deepcopy(Fp22)
     # estimates
     Dptrue = np.zeros(lend)
     Dttrue = np.zeros(lend)
