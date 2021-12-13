@@ -388,13 +388,13 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
                                    drop_last=True)
     # validation data is loaded here. By not shuffling, we make sure the same data is loaded for validation every time. We can use substantially more data per batch as we are not training.
     inferloader = utils.DataLoader(val_set,
-                                   batch_size=32 * arg.train_pars.batch_size,
+                                   batch_size=min(val_set.__len__(),32 * arg.train_pars.batch_size),
                                    shuffle=False,
                                    drop_last=True)
 
     # defining the number of training and validation batches for normalisation later
     totalit = np.min([arg.train_pars.maxit, np.floor(split // arg.train_pars.batch_size)])
-    batch_norm2 = np.floor(len(val_set) // (32 * arg.train_pars.batch_size))
+    batch_norm2 = np.floor(len(val_set) // (min(val_set.__len__(),32 * arg.train_pars.batch_size)))
 
     # defining optimiser
     if arg.train_pars.scheduler:
