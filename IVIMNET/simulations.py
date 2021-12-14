@@ -317,20 +317,30 @@ def sim_signal(SNR, bvalues, sims=100000, Dmin=0.5 / 1000, Dmax=2.0 / 1000, fmin
     data_sim = np.zeros([len(D), len(bvalues)])
     bvalues = np.array(bvalues)
 
+    if type(SNR) == tuple:
+        test = rg.uniform(0, 1, (sims, 1))
+        SNR = np.exp(np.log(SNR[1]) + (test * (np.log(SNR[0]) - np.log(SNR[1]))))
+        addnoise = True
+    elif SNR == 0:
+        addnoise = False
+    else:
+        SNR = SNR * np.ones_like(Dp)
+        addnoise = True
+
     # loop over array to fill with simulated IVIM data
     for aa in range(len(D)):
         data_sim[aa, :] = fit.ivim(bvalues, D[aa][0], f[aa][0], Dp[aa][0], 1)
 
     # if SNR is set to zero, don't add noise
-    if SNR > 0:
+    if addnoise:
         # initialise noise arrays
         noise_imag = np.zeros([sims, len(bvalues)])
         noise_real = np.zeros([sims, len(bvalues)])
         # fill arrays
         for i in range(0, sims - 1):
-            noise_real[i,] = rg.normal(0, 1 / SNR,
+            noise_real[i,] = rg.normal(0, 1 / SNR[i],
                                        (1, len(bvalues)))  # wrong! need a SD per input. Might need to loop to maD noise
-            noise_imag[i,] = rg.normal(0, 1 / SNR, (1, len(bvalues)))
+            noise_imag[i,] = rg.normal(0, 1 / SNR[i], (1, len(bvalues)))
         if rician:
             # add Rician noise as the square root of squared gaussian distributed real signal + noise and imaginary noise
             data_sim = np.sqrt(np.power(data_sim + noise_real, 2) + np.power(noise_imag, 2))
