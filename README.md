@@ -1,8 +1,9 @@
 # IVIMNET
 This repository contains the code regarding our submitted publication: Improved unsupervised physics-informed deep learning for intravoxel-incoherent motion modeling and evaluation in pancreatic cancer patients
 
-Preprints of the publication accompanying this code is available at:
-https://arxiv.org/abs/2011.01689 (publication was submitted to journal and will be updated; please check whether published already before citing)
+Publication accompanying this code is available at:
+https://doi.org/10.1002/mrm.28852 Improved unsupervised physics-informed deep learning for intravoxel incoherent motion modeling and evaluation in pancreatic cancer patients, Kaandorp et al. MRM 2021 86:4;2250-2265 
+
 
 September 2020 by Oliver Gurney-Champion
 oliver.gurney.champion@gmail.com / o.j.gurney-champion@amsterdamumc.nl
