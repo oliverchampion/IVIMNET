@@ -55,11 +55,22 @@ def sim(SNR, arg):
     """
     arg = deep.checkarg(arg)
     # this simulated the signal
-    IVIM_signal_noisy, D, f, Dp = sim_signal(SNR, arg.sim.bvalues, sims=arg.sim.sims, Dmin=arg.sim.range[0][0],
+    if arg.fit.model == 'bi-exp':
+        IVIM_signal_noisy, D, f, Dp = sim_signal(SNR, arg.sim.bvalues, sims=arg.sim.sims, Dmin=arg.sim.range[0][0],
                                              Dmax=arg.sim.range[1][0], fmin=arg.sim.range[0][1],
                                              fmax=arg.sim.range[1][1], Dsmin=arg.sim.range[0][2],
                                              Dsmax=arg.sim.range[1][2], rician=arg.sim.rician)
-
+        dims=4
+    else:
+        IVIM_signal_noisy, D, f, Dp, f2, Dp2 = sim_signal(SNR, arg.sim.bvalues, sims=arg.sim.sims, Dmin=arg.sim.range[0][0],
+                                                 Dmax=arg.sim.range[1][0], fmin=arg.sim.range[0][1],
+                                                 fmax=arg.sim.range[1][1], Dsmin=arg.sim.range[0][2],
+                                                 Dsmax=arg.sim.range[1][2], fp2min=arg.sim.range[0][3],
+                                                 fp2max=arg.sim.range[1][3],Ds2min=arg.sim.range[0][4],
+                                                 Ds2max=arg.sim.range[1][4],rician=arg.sim.rician,bi_exp=False)
+        f2 = f2[:arg.sim.num_samples_eval]
+        Dp2  = Dp2[:arg.sim.num_samples_eval]
+        dims = 6
     # only remember the D, Dp and f needed for evaluation
     D = D[:arg.sim.num_samples_eval]
     Dp = Dp[:arg.sim.num_samples_eval]
@@ -67,9 +78,9 @@ def sim(SNR, arg):
 
     # prepare a larger array in case we repeat training
     if arg.sim.repeats > 1:
-        paramsNN = np.zeros([arg.sim.repeats, 4, arg.sim.num_samples_eval])
+        paramsNN = np.zeros([arg.sim.repeats, dims, arg.sim.num_samples_eval])
     else:
-        paramsNN = np.zeros([4, arg.sim.num_samples_eval])
+        paramsNN = np.zeros([dims, arg.sim.num_samples_eval])
 
     # if we are not skipping the network for evaluation
     if not arg.train_pars.skip_net:
@@ -98,26 +109,33 @@ def sim(SNR, arg):
         print('results for NN')
         # if we repeat training, then evaluate stability
         if arg.sim.repeats > 1:
-            matNN = np.zeros([arg.sim.repeats, 3, 3])
+            matNN = np.zeros([arg.sim.repeats, 3, dims-1])
             for aa in range(arg.sim.repeats):
                 # determine errors and Spearman Rank
-                matNN[aa] = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsNN[aa])
+                if arg.fit.model == 'bi-exp':
+                    matNN[aa] = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsNN[aa])
+                else:
+                    matNN[aa] = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsNN[aa],np.squeeze(f2),np.squeeze(Dp2))
             matNN = np.mean(matNN, axis=0)
             # calculate Stability Factor
             stability = np.sqrt(np.mean(np.square(np.std(paramsNN, axis=0)), axis=1))
-            stability = stability[[0, 1, 2]] / [np.mean(D), np.mean(f), np.mean(Dp)]
+            if arg.fit.model == 'bi-exp':
+                stability = stability[[0, 1, 2]] / [np.mean(D), np.mean(f), np.mean(Dp)]
+            else:
+                stability = stability[[0, 1, 2, 3 ,4]] / [np.mean(D), np.mean(f), np.mean(Dp), np.mean(f2), np.mean(Dp2)]
             # set paramsNN for the plots
-            paramsNN_0 = paramsNN[0]
         else:
-            matNN = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsNN)
-            stability = np.zeros(3)
-            paramsNN_0 = paramsNN
+            if arg.fit.model == 'bi-exp':
+                matNN = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsNN)
+            else:
+                matNN = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsNN,np.squeeze(f2),np.squeeze(Dp2))
+            stability = np.zeros(dims-1)
         # del paramsNN
         # show figures if requested
         plots(arg, D, Dp, f, paramsNN)
     else:
         # if network is skipped
-        stability = np.zeros(3)
+        stability = np.zeros(dims-1)
         matNN = np.zeros([3, 5])
     if arg.fit.do_fit:
         start_time = time.time()
@@ -127,7 +145,10 @@ def sim(SNR, arg):
         print('\ntime elapsed for fit: {}\n'.format(elapsed_time))
         print('results for fit')
         # determine errors and Spearman Rank
-        matlsq = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsf)
+        if arg.fit.model == 'bi-exp':
+            matlsq = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsf)
+        else:
+            matlsq = print_errors(np.squeeze(D), np.squeeze(f), np.squeeze(Dp), paramsf, np.squeeze(f2), np.squeeze(Dp2))
         # del paramsf, IVIM_signal_noisy
         # show figures if requested
         plots(arg, D, Dp, f, paramsf)
@@ -278,8 +299,8 @@ def augmented_signal(data, bvalues, arg, fraction=0.3, Dmin=0.3 / 1000, Dmax=4.0
     return IVIM_signal_noisy[indx_back]
 
 
-def sim_signal(SNR, bvalues, sims=100000, Dmin=0.5 / 1000, Dmax=2.0 / 1000, fmin=0.1, fmax=0.5, Dsmin=0.05, Dsmax=0.2,
-               rician=False, state=123):
+def sim_signal(SNR, bvalues, sims=100000, Dmin=0.5 / 1000, Dmax=5.0 / 1000, fmin=0.0, fmax=0.7, Dsmin=0.05, Dsmax=0.3,fp2min=0, fp2max=0.3,Ds2min=0.2,Ds2max=0.5,
+               rician=False, state=123, bi_exp=True):
     """
     This simulates IVIM curves. Data is simulated by randomly selecting a value of D, f and D* from within the
     predefined range.
@@ -312,6 +333,11 @@ def sim_signal(SNR, bvalues, sims=100000, Dmin=0.5 / 1000, Dmax=2.0 / 1000, fmin
     f = fmin + (test * (fmax - fmin))
     test = rg.uniform(0, 1, (sims, 1))
     Dp = Dsmin + (test * (Dsmax - Dsmin))
+    if not bi_exp:
+        test = rg.uniform(0, 1, (sims, 1))
+        f2 = fp2min + (test * (fp2max - fp2min))
+        test = rg.uniform(0, 1, (sims, 1))
+        Dp2 = Ds2min + (test * (Ds2max - Ds2min))
 
     # initialise data array
     data_sim = np.zeros([len(D), len(bvalues)])
@@ -329,8 +355,10 @@ def sim_signal(SNR, bvalues, sims=100000, Dmin=0.5 / 1000, Dmax=2.0 / 1000, fmin
 
     # loop over array to fill with simulated IVIM data
     for aa in range(len(D)):
-        data_sim[aa, :] = fit.ivim(bvalues, D[aa][0], f[aa][0], Dp[aa][0], 1)
-
+        if bi_exp:
+            data_sim[aa, :] = fit.ivim(bvalues, D[aa][0], f[aa][0], Dp[aa][0], 1)
+        else:
+            data_sim[aa, :] = fit.tri_exp(bvalues, 1-f[aa][0]-f2[aa][0], D[aa][0], f[aa][0], Dp[aa][0], f2[aa][0], Dp2[aa][0])
     # if SNR is set to zero, don't add noise
     if addnoise:
         # initialise noise arrays
@@ -353,44 +381,82 @@ def sim_signal(SNR, bvalues, sims=100000, Dmin=0.5 / 1000, Dmax=2.0 / 1000, fmin
     # normalise signal
     S0_noisy = np.mean(data_sim[:, bvalues == 0], axis=1)
     data_sim = data_sim / S0_noisy[:, None]
-    return data_sim, D, f, Dp
+    if bi_exp:
+        return data_sim, D, f, Dp
+    else:
+        return data_sim, D, f, Dp, f2, Dp2
 
-
-def print_errors(D, f, Dp, params):
+def print_errors(D, f, Dp, params, f2=(),Dp2=()):
     # this function calculates and prints the random, systematic, root-mean-squared (RMSE) errors and Spearman Rank correlation coefficient
+    if len(f2) == 0:
+        rmse_D = np.sqrt(np.square(np.subtract(D, params[0])).mean())
+        rmse_f = np.sqrt(np.square(np.subtract(f, params[1])).mean())
+        rmse_Dp = np.sqrt(np.square(np.subtract(Dp, params[2])).mean())
+        # initialise Spearman Rank matrix
+        Spearman = np.zeros([3, 2])
+        # calculate Spearman Rank correlation coefficient and p-value
+        Spearman[0, 0], Spearman[0, 1] = scipy.spearmanr(params[0], params[2])  # DvDp
+        Spearman[1, 0], Spearman[1, 1] = scipy.spearmanr(params[0], params[1])  # Dvf
+        Spearman[2, 0], Spearman[2, 1] = scipy.spearmanr(params[1], params[2])  # fvDp
+        # If spearman is nan, set as 1 (because of constant estimated IVIM parameters)
+        Spearman[np.isnan(Spearman)] = 1
+        # take absolute Spearman
+        Spearman = np.absolute(Spearman)
+        del params
 
-    rmse_D = np.sqrt(np.square(np.subtract(D, params[0])).mean())
+        normD_lsq = np.mean(D)
+        normf_lsq = np.mean(f)
+        normDp_lsq = np.mean(Dp)
 
-    rmse_f = np.sqrt(np.square(np.subtract(f, params[1])).mean())
+        print('\nresults from NN: columns show themean, the SD/mean, the systematic error/mean, the RMSE/mean and the Spearman coef [DvDp,Dvf,fvDp] \n'
+              'the rows show D, f and D*\n')
+        print([normD_lsq, '  ', rmse_D / normD_lsq, ' ', Spearman[0, 0]])
+        print([normf_lsq, '  ', rmse_f / normf_lsq, ' ', Spearman[1, 0]])
+        print([normDp_lsq, '  ', rmse_Dp / normDp_lsq,' ', Spearman[2, 0]])
 
-    rmse_Dp = np.sqrt(np.square(np.subtract(Dp, params[2])).mean())
+        mats = [[normD_lsq, rmse_D / normD_lsq, Spearman[0, 0]],
+                [normf_lsq, rmse_f / normf_lsq, Spearman[1, 0]],
+                [normDp_lsq, rmse_Dp / normDp_lsq, Spearman[2, 0]]]
+    else:
+        rmse_D = np.sqrt(np.nanmean(np.square(np.subtract(D, params[1]))))
+        rmse_f = np.sqrt(np.nanmean(np.square(np.subtract(f, params[2]))))
+        rmse_Dp = np.sqrt(np.nanmean(np.square(np.subtract(Dp, params[3]))))
+        rmse_f2 = np.sqrt(np.nanmean(np.square(np.subtract(f2, params[4]))))
+        rmse_Dp2 = np.sqrt(np.nanmean(np.square(np.subtract(Dp2, params[5]))))
+        # initialise Spearman Rank matrix
+        Spearman = np.zeros([5, 2])
+        # calculate Spearman Rank correlation coefficient and p-value
+        Spearman[0, 0], Spearman[0, 1] = scipy.spearmanr(params[0], params[2])  # DvDp
+        Spearman[1, 0], Spearman[1, 1] = scipy.spearmanr(params[3], params[4])  # Dvf
+        Spearman[2, 0], Spearman[2, 1] = scipy.spearmanr(params[1], params[2])  # fvDp
+        Spearman[3, 0], Spearman[3, 1] = scipy.spearmanr(params[1], params[3])  # Dvf
+        Spearman[4, 0], Spearman[4, 1] = scipy.spearmanr(params[2], params[4])  # fvDp
+        # If spearman is nan, set as 1 (because of constant estimated IVIM parameters)
+        Spearman[np.isnan(Spearman)] = 1
+        # take absolute Spearman
+        Spearman = np.absolute(Spearman)
+        del params
 
-    # initialise Spearman Rank matrix
-    Spearman = np.zeros([3, 2])
-    # calculate Spearman Rank correlation coefficient and p-value
-    Spearman[0, 0], Spearman[0, 1] = scipy.spearmanr(params[0], params[2])  # DvDp
-    Spearman[1, 0], Spearman[1, 1] = scipy.spearmanr(params[0], params[1])  # Dvf
-    Spearman[2, 0], Spearman[2, 1] = scipy.spearmanr(params[1], params[2])  # fvDp
-    # If spearman is nan, set as 1 (because of constant estimated IVIM parameters)
-    Spearman[np.isnan(Spearman)] = 1
-    # take absolute Spearman
-    Spearman = np.absolute(Spearman)
-    del params
+        normD_lsq = np.mean(D)
+        normf_lsq = np.mean(f)
+        normDp_lsq = np.mean(Dp)
+        normf2_lsq = np.mean(f2)
+        normDp2_lsq = np.mean(Dp2)
 
-    normD_lsq = np.mean(D)
-    normf_lsq = np.mean(f)
-    normDp_lsq = np.mean(Dp)
+        print(
+            '\nresults from NN: columns show themean, the SD/mean, the systematic error/mean, the RMSE/mean and the Spearman coef [DvDp,Dvf,fvDp] \n'
+            'the rows show D, f and D*\n')
+        print([normD_lsq, '  ', rmse_D / normD_lsq, ' ', Spearman[0, 0]])
+        print([normf_lsq, '  ', rmse_f / normf_lsq, ' ', Spearman[1, 0]])
+        print([normDp_lsq, '  ', rmse_Dp / normDp_lsq, ' ', Spearman[2, 0]])
+        print([normf2_lsq, '  ', rmse_f2 / normf2_lsq, ' ', Spearman[3, 0]])
+        print([normDp2_lsq, '  ', rmse_Dp2 / normDp2_lsq, ' ', Spearman[4, 0]])
 
-    print('\nresults from NN: columns show themean, the SD/mean, the systematic error/mean, the RMSE/mean and the Spearman coef [DvDp,Dvf,fvDp] \n'
-          'the rows show D, f and D*\n')
-    print([normD_lsq, '  ', rmse_D / normD_lsq, ' ', Spearman[0, 0]])
-    print([normf_lsq, '  ', rmse_f / normf_lsq, ' ', Spearman[1, 0]])
-    print([normDp_lsq, '  ', rmse_Dp / normDp_lsq,' ', Spearman[2, 0]])
-
-    mats = [[normD_lsq, rmse_D / normD_lsq, Spearman[0, 0]],
-            [normf_lsq, rmse_f / normf_lsq, Spearman[1, 0]],
-            [normDp_lsq, rmse_Dp / normDp_lsq, Spearman[2, 0]]]
-
+        mats = [[normD_lsq, rmse_D / normD_lsq, Spearman[0, 0]],
+                [normf_lsq, rmse_f / normf_lsq, Spearman[1, 0]],
+                [normDp_lsq, rmse_Dp / normDp_lsq, Spearman[2, 0]],
+                [normf2_lsq, rmse_f2 / normf2_lsq, Spearman[3, 0]],
+                [normDp2_lsq, rmse_Dp2 / normDp2_lsq, Spearman[4, 0]]]
     return mats
 
 

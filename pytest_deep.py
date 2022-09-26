@@ -1,13 +1,22 @@
 import pytest
 import numpy as np
-import simulations as sim
-from hyperparams import hyperparams as hp_example
-import deep
+import IVIMNET.simulations as sim
+import IVIMNET.deep as deep
 import time
 
+class hyperparams(object):
+    def __init__(self):
+        self.fig = False # plot results and intermediate steps
+        self.save_name = 'optim' # orig or optim (or optim_adsig for in vivo)  torch18_015bounds_force_pos_false
+        self.net_pars = deep.net_pars(self.save_name)
+        self.train_pars = deep.train_pars(self.save_name)
+        self.fit = deep.lsqfit()
+        self.sharp = True # options for in vivo. Not relevant to upload
+        self.sim = deep.sim()
+        self.reps = 1
 
 def test_NN():
-    arg = hp_example()
+    arg = hyperparams()
     arg = deep.checkarg(arg)
     arg.sim.repeats = 1
     arg.sim.sims=5000000

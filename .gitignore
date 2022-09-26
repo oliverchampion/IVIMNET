@@ -2,6 +2,7 @@ results
 *.pt
 plots
 Anchor
+STRICTURE
 .idea
 *.pickle
 

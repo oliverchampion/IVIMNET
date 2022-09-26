@@ -24,9 +24,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as utils
 from tqdm import tqdm
-import matplotlib
-matplotlib.use('TkAgg')
-from matplotlib import pyplot as plt
 import os
 import IVIMNET.fitting_algorithms as fit
 from joblib import Parallel, delayed
@@ -351,7 +348,7 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
     arg = checkarg(arg)
 
     ## normalise the signal to b=0 and remove data with nans
-    X_train = normalise(X_train, bvalues, arg)
+    X_train = normalise(X_train, bvalues, arg, min(bvalues))
     # removing non-IVIM-like data; this often gets through when background data is not correctly masked
     # Estimating IVIM parameters in these data is meaningless anyways.
     if not arg.norm_data_full:
@@ -444,6 +441,7 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
             running_loss_train += loss.item()
         # show some figures if desired, to show whether there is a correlation between Dp and f
         if arg.fig:
+            from matplotlib import pyplot as plt
             plt.figure(3)
             plt.clf()
             plt.plot(Dp_pred.tolist(), Fp_pred.tolist(), 'rx', markersize=5)
@@ -489,6 +487,7 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
             print("\n############### Saving good model ###############################")
             final_model = copy.deepcopy(net.state_dict())
             best = running_loss_val
+            net.best_loss=running_loss_val
             num_bad_epochs = 0
         else:
             num_bad_epochs = num_bad_epochs + 1
@@ -502,6 +501,7 @@ def learn_IVIM(X_train, bvalues, arg, net=None):
     print("Done")
     # save final fits
     if arg.fig:
+        from matplotlib import pyplot as plt
         if not os.path.isdir('plots'):
             os.makedirs('plots')
         plt.figure(1)
@@ -674,6 +674,8 @@ def plot_progress(X_batch, X_pred, bvalues, loss_train, loss_val, arg):
     X_pred = X_pred[:, inds1]
     bvalues = bvalues[inds1]
     if arg.fig:
+        import matplotlib
+        from matplotlib import pyplot as plt
         matplotlib.use('TkAgg')
         plt.close('all')
         fig, axs = plt.subplots(2, 2)
@@ -888,9 +890,14 @@ def checkarg(arg):
 
 
 class train_pars:
-    def __init__(self):
+    def __init__(self,nets):
         self.optim='adam' #these are the optimisers implementd. Choices are: 'sgd'; 'sgdr'; 'adagrad' adam
-        self.lr = 0.0001 # this is the learning rate.
+        if nets == 'optim':
+            self.lr = 0.00003 # this is the learning rate.
+        elif nets == 'orig':
+            self.lr = 0.001  # this is the learning rate.
+        else:
+            self.lr = 0.00003 # this is the learning rate.
         self.patience= 10 # this is the number of epochs without improvement that the network waits untill determining it found its optimum
         self.batch_size= 128 # number of datasets taken along per iteration
         self.maxit = 500 # max iterations per epoch
@@ -903,30 +910,34 @@ class train_pars:
         self.use_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if self.use_cuda else "cpu")
         self.select_best = False
-        self.plateau_size = 20
 
 
 class net_pars:
-    def __init__(self):
+    def __init__(self,nets):
         # select a network setting
         # the optimized network settings
         self.dropout = 0.1 #0.0/0.1 chose how much dropout one likes. 0=no dropout; internet says roughly 20% (0.20) is good, although it also states that smaller networks might desire smaller amount of dropout
         self.batch_norm = True # False/True turns on batch normalistion
         self.parallel = 'parallel' # defines whether the network exstimates each parameter seperately (each parameter has its own network) or whether 1 shared network is used instead
-        self.tri_exp = False
         self.con = 'sigmoid' # defines the constraint function; 'sigmoid' gives a sigmoid function giving the max/min; 'abs' gives the absolute of the output, 'none' does not constrain the output
+        self.tri_exp = False
         #### only if sigmoid constraint is used!
-        self.cons_min = [-0.0001, -0.05, -0.05, 0.7]  # Dt, Fp, Ds, S0
-        self.cons_max = [0.005, 0.7, 0.3, 1.3]  # Dt, Fp, Ds, S0
+        if self.tri_exp:
+            self.cons_min = [0., 0.0003, 0.0, 0.003, 0.0, 0.08] # F0', D0, F1', D1, F2', D2
+            self.cons_max = [2.5, 0.003, 1, 0.08, 1, 5]  # F0', D0, F1', D1, F2', D2
+        else:
+            self.cons_min = [0, 0, 0.005, 0]  # Dt, Fp, Ds, S0
+            self.cons_max = [0.005, 0.7, 0.2, 2.0]  # Dt, Fp, Ds, S0
         ####
-        self.fitS0=True # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
-        self.depth = 4 # number of layers
+        self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 (for normalised signals); I prefer fitting S0 as it takes along the potential error is S0.
+        self.depth = 2 # number of layers
         self.width = 0 # new option that determines network width. Putting to 0 makes it as wide as the number of b-values
 
 
 class lsqfit:
     def __init__(self):
         self.method = 'lsq' #seg, bayes or lsq
+        self.model = 'bi-exp' #seg, bayes or lsq
         self.do_fit = True # skip lsq fitting
         self.load_lsq = False # load the last results for lsq fit
         self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 in the least squares fit.

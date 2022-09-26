@@ -23,7 +23,12 @@ from scipy.optimize import curve_fit, minimize
 import numpy as np
 from scipy import stats
 from joblib import Parallel, delayed
-import tqdm
+import sys
+if sys.stderr.isatty():
+    from tqdm import tqdm
+else:
+    def tqdm(iterable, **kwargs):
+        return iterable
 import warnings
 
 
@@ -33,6 +38,7 @@ def fit_dats(bvalues, dw_data, arg, savename=None):
     input:
     :param arg: an object with fit options, with attributes:
     arg.method --> string with the fit method; allowed: lsq (least squares fit), seg (segmented fit) and bayes (bayesian fit)
+    arg.model --> string with the fit model; allowed: bi-exp, tri-exp (note only lsq and seg are implemented for tri-exp)
     arg.do_fit --> Boolean; False for skipping the regular fit
     arg.load_lsq --> Boolean; True will load the fit results saved under input parameter "savename"
     arg.fitS0 --> Boolean; False fixes S0 to 1, True fits S0
@@ -51,48 +57,54 @@ def fit_dats(bvalues, dw_data, arg, savename=None):
         if not arg.load_lsq:
             # select fit to be run
             if arg.method == 'seg':
-                print('running segmented fit\n')
-                paramslsq = fit_segmented_array(bvalues, dw_data, njobs=arg.jobs, bounds=arg.bounds)
-                # save results if parameter savename is given
-                if savename is not None:
-                    np.savez(savename, paramslsq=paramslsq)
-            elif (arg.method == 'lsq'):
-                print('running conventional fit\n')
-                paramslsq = fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=arg.fitS0, njobs=arg.jobs,
-                                                    bounds=arg.bounds)
-                # save results if parameter savename is given
-                if savename is not None:
-                    np.savez(savename, paramslsq=paramslsq)
-            elif (arg.method == 'tri-exp'):
-                print('running tri-exp fit\n')
-                paramslsq = fit_least_squares_array_tri_exp(bvalues, dw_data, S0_output=True, fitS0=arg.fitS0,
-                                                            njobs=arg.jobs,
-                                                            bounds=arg.bounds)
-                # save results if parameter savename is given
-                if savename is not None:
-                    np.savez(savename, paramslsq=paramslsq)
-            elif (arg.method == 'seg_tri-exp'):
-                print('running segmented fit\n')
-                paramslsq = fit_segmented_array_tri_exp(bvalues, dw_data, njobs=arg.jobs, bounds=arg.bounds)
-                # save results if parameter savename is given
-                if savename is not None:
-                    np.savez(savename, paramslsq=paramslsq)
-            elif arg.method == 'bayes':
-                print('running conventional fit to determine Bayesian prior\n')
-                # for this Bayesian fit approach, a data-driven prior needs to be defined. Hence, intially we do a regular lsq fit
-                paramslsq = fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=arg.fitS0, njobs=arg.jobs,
-                                                    bounds=arg.bounds)
-                print('running Bayesian fit\n')
-                Dt_pred, Fp_pred, Dp_pred, S0_pred = fit_bayesian_array(bvalues, dw_data, paramslsq, arg)
-                Dt0, Fp0, Dp0, S00 = paramslsq
-                # For Bayesian fit, we also give the lsq results as we had to obtain them anyway.
-                if arg.fitS0:
-                    paramslsq = Dt_pred, Fp_pred, Dp_pred, S0_pred, Dt0, Fp0, Dp0, S00
-                else:
-                    paramslsq = Dt_pred, Fp_pred, Dp_pred, Dt0, Fp0, Dp0
-                if savename is not None:
+                if arg.model == 'bi-exp':
+                    print('running segmented bi-exp fit\n')
+                    paramslsq = fit_segmented_array(bvalues, dw_data, njobs=arg.jobs, bounds=arg.bounds)
                     # save results if parameter savename is given
-                    np.savez(savename, paramslsq=paramslsq)
+                    if savename is not None:
+                        np.savez(savename, paramslsq=paramslsq)
+                elif (arg.model == 'tri-exp'):
+                    print('running segmented  tri-exp fit\n')
+                    paramslsq = fit_segmented_array_tri_exp(bvalues, dw_data, njobs=arg.jobs, bounds=arg.bounds)
+                    # save results if parameter savename is given
+                    if savename is not None:
+                        np.savez(savename, paramslsq=paramslsq)
+            elif (arg.method == 'lsq'):
+                if arg.model == 'bi-exp':
+                    print('running conventional bi-exp fit\n')
+                    paramslsq = fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=arg.fitS0, njobs=arg.jobs,
+                                                        bounds=arg.bounds)
+                    # save results if parameter savename is given
+                    if savename is not None:
+                        np.savez(savename, paramslsq=paramslsq)
+                elif (arg.model == 'tri-exp'):
+                    print('running conventional tri-exp fit\n')
+                    paramslsq = fit_least_squares_array_tri_exp(bvalues, dw_data, S0_output=True, fitS0=arg.fitS0,
+                                                                njobs=arg.jobs,
+                                                                bounds=arg.bounds)
+                    # save results if parameter savename is given
+                    if savename is not None:
+                        np.savez(savename, paramslsq=paramslsq)
+
+            elif arg.method == 'bayes':
+                if arg.model == 'bi-exp':
+                    print('running conventional fit to determine Bayesian prior\n')
+                    # for this Bayesian fit approach, a data-driven prior needs to be defined. Hence, intially we do a regular lsq fit
+                    paramslsq = fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=arg.fitS0, njobs=arg.jobs,
+                                                        bounds=arg.bounds)
+                    print('running Bayesian fit\n')
+                    Dt_pred, Fp_pred, Dp_pred, S0_pred = fit_bayesian_array(bvalues, dw_data, paramslsq, arg)
+                    Dt0, Fp0, Dp0, S00 = paramslsq
+                    # For Bayesian fit, we also give the lsq results as we had to obtain them anyway.
+                    if arg.fitS0:
+                        paramslsq = Dt_pred, Fp_pred, Dp_pred, S0_pred, Dt0, Fp0, Dp0, S00
+                    else:
+                        paramslsq = Dt_pred, Fp_pred, Dp_pred, Dt0, Fp0, Dp0
+                    if savename is not None:
+                        # save results if parameter savename is given
+                        np.savez(savename, paramslsq=paramslsq)
+                elif (arg.model == 'tri-exp'):
+                    raise Exception('the choise tri-exp bayes not implemented')
             else:
                 raise Exception('the choise lsq-fit is not implemented. Try ''lsq'', ''seg'' or ''bayes''')
         else:
@@ -264,7 +276,7 @@ def fit_segmented_array(bvalues, dw_data, njobs=4, bounds=([0, 0, 0.005],[0.005,
             def parfun(i):
                 return fit_segmented(bvalues, dw_data[i, :], bounds=bounds, cutoff=cutoff)
 
-            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True))
+            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm(range(len(dw_data)), position=0, leave=True))
             Dt, Fp, Dp = np.transpose(output)
         except:
             # if fails, retry using single core
@@ -277,7 +289,7 @@ def fit_segmented_array(bvalues, dw_data, njobs=4, bounds=([0, 0, 0.005],[0.005,
         Dp = np.zeros(len(dw_data))
         Dt = np.zeros(len(dw_data))
         Fp = np.zeros(len(dw_data))
-        for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True):
+        for i in tqdm(range(len(dw_data)), position=0, leave=True):
             # fill arrays with fit results on a per voxel base:
             Dt[i], Fp[i], Dp[i] = fit_segmented(bvalues, dw_data[i, :], bounds=bounds, cutoff=cutoff)
     return [Dt, Fp, Dp, S0]
@@ -349,7 +361,7 @@ def fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=True, njobs=
                 def parfun(i):
                     return fit_least_squares(bvalues, dw_data[i, :], S0_output=S0_output, fitS0=fitS0, bounds=bounds)
 
-                output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True))
+                output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm(range(len(dw_data)), position=0, leave=True))
                 Dt, Fp, Dp, S0 = np.transpose(output)
             except:
                 single = True
@@ -362,7 +374,7 @@ def fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=True, njobs=
             Fp = np.zeros(len(dw_data))
             S0 = np.zeros(len(dw_data))
             # running in a single loop and filling arrays
-            for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True):
+            for i in tqdm(range(len(dw_data)), position=0, leave=True):
                 Dt[i], Fp[i], Dp[i], S0[i] = fit_least_squares(bvalues, dw_data[i, :], S0_output=S0_output, fitS0=fitS0,
                                                                bounds=bounds)
         return [Dt, Fp, Dp, S0]
@@ -373,7 +385,7 @@ def fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=True, njobs=
                 def parfun(i):
                     return fit_least_squares(bvalues, dw_data[i, :], fitS0=fitS0, bounds=bounds)
 
-                output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True))
+                output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm(range(len(dw_data)), position=0, leave=True))
                 Dt, Fp, Dp = np.transpose(output)
             except:
                 single = True
@@ -461,7 +473,7 @@ def fit_least_squares_array_tri_exp(bvalues, dw_data, S0_output=True, fitS0=True
             def parfun(i):
                 return fit_least_squares_tri_exp(bvalues, dw_data[i, :], S0_output=S0_output, fitS0=fitS0, bounds=bounds)
 
-            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True))
+            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm(range(len(dw_data)), position=0, leave=True))
             Fp0, Dt, Fp1, Dp1, Fp2, Dp2 = np.transpose(output)
         except:
             single = True
@@ -476,7 +488,7 @@ def fit_least_squares_array_tri_exp(bvalues, dw_data, S0_output=True, fitS0=True
         Fp2 = np.zeros(len(dw_data))
         Dp2 = np.zeros(len(dw_data))
         # running in a single loop and filling arrays
-        for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True):
+        for i in tqdm(range(len(dw_data)), position=0, leave=True):
             Fp0[i], Dt[i], Fp1[i], Dp1[i], Fp2[i], Dp2[i] = fit_least_squares_tri_exp(bvalues, dw_data[i, :], S0_output=S0_output, fitS0=fitS0,
                                                            bounds=bounds)
     if S0_output:
@@ -560,7 +572,7 @@ def fit_segmented_array_tri_exp(bvalues, dw_data, njobs=4, bounds=([0, 0, 0, 0.0
             def parfun(i):
                 return fit_segmented(bvalues, dw_data[i, :], bounds=bounds, cutoff=cutoff)
 
-            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True))
+            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm(range(len(dw_data)), position=0, leave=True))
             Dt, Fp, Dp, Fp0, Fp2, Dp2 = np.transpose(output)
         except:
             # if fails, retry using single core
@@ -576,7 +588,7 @@ def fit_segmented_array_tri_exp(bvalues, dw_data, njobs=4, bounds=([0, 0, 0, 0.0
         Fp1 = np.zeros(len(dw_data))
         Dp2 = np.zeros(len(dw_data))
         Fp2 = np.zeros(len(dw_data))
-        for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True):
+        for i in tqdm(range(len(dw_data)), position=0, leave=True):
             # fill arrays with fit results on a per voxel base:
             Fp0[i], Dt[i], Fp1[i], Dp1[i], Fp2[i], Dp2[i] = fit_segmented_tri_exp(bvalues, dw_data[i, :], bounds=bounds, cutoff=cutoff)
     return [Fp0+Fp1+Fp2, Dt, Fp1/(Fp0+Fp1+Fp2), Dp1, Fp2/(Fp0+Fp1+Fp2), Dp2]
@@ -754,7 +766,7 @@ def fit_bayesian_array(bvalues, dw_data, paramslsq, arg):
                 x0 = [Dt0[i], Fp0[i], Dp0[i], S00[i]]
                 return fit_bayesian(bvalues, dw_data[i, :], neg_log_prior, x0, fitS0=arg.fitS0)
 
-            output = Parallel(n_jobs=arg.jobs)(delayed(parfun)(i) for i in tqdm.tqdm(range(len(dw_data)), position=0,
+            output = Parallel(n_jobs=arg.jobs)(delayed(parfun)(i) for i in tqdm(range(len(dw_data)), position=0,
                                                                                      leave=True))
             Dt_pred, Fp_pred, Dp_pred, S0_pred = np.transpose(output)
         except:
@@ -768,7 +780,7 @@ def fit_bayesian_array(bvalues, dw_data, paramslsq, arg):
         Fp_pred = np.zeros(len(dw_data))
         S0_pred = np.zeros(len(dw_data))
         # fill in array while looping over voxels
-        for i in tqdm.tqdm(range(len(dw_data)), position=0, leave=True):
+        for i in tqdm(range(len(dw_data)), position=0, leave=True):
             # starting point
             x0 = [Dt0[i], Fp0[i], Dp0[i], S00[i]]
             Dt, Fp, Dp, S0 = fit_bayesian(bvalues, dw_data[i, :], neg_log_prior, x0, fitS0=arg.fitS0)
@@ -821,6 +833,9 @@ def checkarg_lsq(arg):
     if not hasattr(arg, 'method'):
         warnings.warn('arg.fit.method not defined. Using default of ''lsq''')
         arg.method='lsq'
+    if not hasattr(arg, 'model'):
+        warnings.warn('arg.fit.model not defined. Using default of ''bi-exp''')
+        arg.model = 'bi-exp'
     if not hasattr(arg, 'do_fit'):
         warnings.warn('arg.fit.do_fit not defined. Using default of True')
         arg.do_fit=True

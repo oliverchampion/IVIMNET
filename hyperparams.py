@@ -106,12 +106,13 @@ class net_pars:
 
 class lsqfit:
     def __init__(self):
-        self.method = 'lsq' #seg, bayes or lsq, tri-exp, seg_tri-exp
-        self.do_fit = True # skip lsq fitting
+        self.method = 'lsq' #seg, bayes or lsq
+        self.model = 'bi-exp' #bi-exp or tri-exp
+        self.do_fit = False # skip lsq fitting
         self.load_lsq = False # load the last results for lsq fit
         self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 in the least squares fit.
         self.jobs = 4 # number of parallel jobs. If set to 1, no parallel computing is used
-        if self.method == 'tri-exp' or self.method == 'seg_tri-exp':
+        if self.model == 'tri-exp':
             self.bounds = ([0, 0, 0, 0.008, 0, 0.06], [2.5, 0.008, 1, 0.08, 1, 5]) # F0', D0, F1', D1, F2', D2
         else:
             self.bounds = ([0.0003, 0, 0.005, 0.5], [0.005, 0.7, 0.3, 2.5])  # Dt, Fp, Ds, S0
@@ -124,7 +125,11 @@ class sim:
         self.num_samples_eval = 10000 # number of simualtiosn te evaluate. This can be lower than the number run. Particularly to save time when fitting. More simulations help with generating sufficient data for the neural network
         self.repeats = 1 # this is the number of repeats for simulations
         self.rician = False # add rician noise to simulations; if false, gaussian noise is added instead
-        self.range = ([0.0005, 0.05, 0.01], [0.003, 0.55, 0.1])
+        self.model = 'bi-exp'
+        if self.model == 'bi-exp':
+            self.range = ([0.0005, 0.05, 0.01], [0.003, 0.55, 0.1])
+        else:
+            self.range = ([0.0005, 0.05, 0.001, 0.05, 0.08], [0.003, 0.5, 0.05, 0.5, 2]) # D0, F1', D1, F2', D2
 
 
 class hyperparams:
