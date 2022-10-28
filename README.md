@@ -6,6 +6,7 @@ it also contains the code for: Self-supervised neural network improves tri-expon
 
 
 Publication accompanying this code is available at:
+
 https://doi.org/10.1002/mrm.28852 Improved unsupervised physics-informed deep learning for intravoxel incoherent motion modeling and evaluation in pancreatic cancer patients, Kaandorp et al. MRM 2021 86:4;2250-2265 
 
 
@@ -31,7 +32,7 @@ https://github.com/Mishakaandorp
 
 Built on code by Sebastiano Barbieri: https://github.com/sebbarb/deep_ivim
 
-##requirements:
+#### requirements:
 
 numpy
 
@@ -53,15 +54,15 @@ To create a conda environment with the '.yml' file enter the command below in th
 This now creates an environment called 'ivim' that can be activated by: conda activate ivim
 
 
-#For easy start, run the examples
-##example1.py
+## For easy start, run the examples
+### example1.py
 This is a very simple visual example in which we simulate a square in a square in a square and show its performance. 
 
-##example2.py
+### example2.py
 This is a example where we simulate a lot of varied data and calculate the accuracy and precission. Output will be tables with accuracy and precission.
 
-##example3.py
-Here we load 1 dataset, train the network, and do the IVIM fit in this patient. NOTE: this is a toy-example in which you will train and evaluate in the same single patient. For larger studies, we would advice you to train 1 single network that you apply to all patients, instead of training a network on a per patient basis. This requieres you to adapt the code.
+### example3.py
+Here we load 1 dataset, train the network, and do the IVIM fit in this patient. **NOTE:** this is a *toy-example* in which you will train and evaluate in **the same single patient**. For larger studies, we would advice you to train 1 single network that you apply to all patients, instead of training a network on a per patient basis. This requieres you to adapt the code.
 
-##tri_exp_examples.example_tri_exp.py
+### tri_exp_examples.example_tri_exp.py
 This is similar to 2, but with tri-exponential model.
