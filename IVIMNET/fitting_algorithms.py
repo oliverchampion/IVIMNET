@@ -349,7 +349,7 @@ def fit_least_squares_array(bvalues, dw_data, S0_output=True, fitS0=True, njobs=
     :return S0: 1D Array with S0 in each voxel
     """
     # normalise the data to S(value=0)
-    S0 = np.mean(dw_data[:, bvalues == 0], axis=1)
+    S0 = np.mean(dw_data[:, bvalues == min(bvalues)], axis=1)
     dw_data = dw_data / S0[:, None]
     single = False
     # split up on whether we want S0 as output
