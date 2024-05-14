@@ -549,7 +549,7 @@ def predict_IVIM(data, bvalues, net, arg):
     arg = checkarg(arg)
 
     ## normalise the signal to b=0 and remove data with nans
-    data = normalise(data, bvalues, arg)
+    X_train = normalise(X_train, bvalues, arg, min(bvalues))
     mylist = isnan(np.mean(data, axis=1))
     sels = [not i for i in mylist]
     # remove data with non-IVIM-like behaviour. Estimating IVIM parameters in these data is meaningless anyways.
