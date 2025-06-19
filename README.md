@@ -1,6 +1,8 @@
 # IVIMNET
 For more deep learning qMRI code and latest updates, see: https://mriresearch.amsterdam/software/ivim-net-and-dce-net/
 
+Now installed by "pip install ivimnet"
+
 This repository contains the code regarding the publication: Improved unsupervised physics-informed deep learning for intravoxel-incoherent motion modeling and evaluation in pancreatic cancer patients. (example1.py, example2.py and example3.py)
 it also contains the code for: Self-supervised neural network improves tri-exponential intravoxel incoherent motion model fitting compared to least-squares fitting in non-alcoholic fatty liver disease (tri_exp_examples.example_tri_exp.py)
 
