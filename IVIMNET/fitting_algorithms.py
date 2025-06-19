@@ -85,7 +85,10 @@ def fit_dats(bvalues, dw_data, arg, savename=None):
                     # save results if parameter savename is given
                     if savename is not None:
                         np.savez(savename, paramslsq=paramslsq)
-
+                elif (arg.model == 'ADC'):
+                    print('running conventional ADC fit\n')
+                    paramslsq = fit_ADC_array(bvalues, dw_data, njobs=arg.jobs, bounds=arg.bounds,
+                                              bvals_included=arg.bvalues_included)
             elif arg.method == 'bayes':
                 if arg.model == 'bi-exp':
                     print('running conventional fit to determine Bayesian prior\n')
@@ -239,6 +242,10 @@ def tri_exp(bvalues, Fp0, Dt, Fp1, Dp1, Fp2, Dp2):
     return (Fp1 * np.exp(-bvalues * Dp1) + Fp2 * np.exp(-bvalues * Dp2) + (Fp0) * np.exp(-bvalues * Dt))
 
 
+def ADC(bvalues, D, S):
+    # tri-exp function in which we try to have equal variance in the different IVIM parameters; equal variance helps with certain fitting algorithms
+    return S * np.exp(-bvalues * D)
+
 def order(Dt, Fp, Dp, S0=None):
     # function to reorder D* and D in case they were swapped during unconstraint fitting. Forces D* > D (Dp>Dt)
     if Dp < Dt:
@@ -248,6 +255,82 @@ def order(Dt, Fp, Dp, S0=None):
         return Dt, Fp, Dp
     else:
         return Dt, Fp, Dp, S0
+
+
+def fit_ADC_array(bvalues, dw_data, njobs=4, bvals_included=None,
+                      bounds=([0, 0],[0.005, 2])):
+    """
+    This is an implementation of the segmented fit, in which we first estimate D using a curve fit to b-values>cutoff;
+    then estimate f from the fitted S0 and the measured S0 and finally estimate D* while fixing D and f. This fit
+    is done on an array.
+    :param bvalues: 1D Array with the b-values
+    :param dw_data: 2D Array with diffusion-weighted signal in different voxels at different b-values
+    :param njobs: Integer determining the number of parallel processes; default = 4
+    :param bounds: 2D Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.2, 0.7, 0.005, 1.2])
+    :param cutoff: cutoff value for determining which data is taken along in fitting D
+    :return Dt: 1D Array with D in each voxel
+    :return Fp: 1D Array with f in each voxel
+    :return Dp: 1D Array with Dp in each voxel
+    :return S0: 1D Array with S0 in each voxel
+    """
+    # first we normalise the signal to S0
+    S0 = np.mean(dw_data[:, bvalues == 0], axis=1)
+    dw_data = dw_data / S0[:, None]
+    # here we try parallel computing, but if fails, go back to computing one single core.
+    single = False
+    if njobs > 2:
+        try:
+            # define the parallel function
+            def parfun(i):
+                return fit_least_squares_ADC(bvalues, dw_data[i, :], bounds=bounds, bvals_included=bvals_included)
+
+            output = Parallel(n_jobs=njobs)(delayed(parfun)(i) for i in tqdm(range(len(dw_data)), position=0, leave=True))
+            D, S = np.transpose(output)
+        except:
+            # if fails, retry using single core
+            single = True
+    else:
+        # or, if specified, immediately go to single core
+        single = True
+    if single:
+        # initialize empty arrays
+        D = np.zeros(len(dw_data))
+        S = np.zeros(len(dw_data))
+        for i in tqdm(range(len(dw_data)), position=0, leave=True):
+            # fill arrays with fit results on a per voxel base:
+            D[i], S[i] = fit_least_squares_ADC(bvalues, dw_data[i, :], bounds=bounds, bvals_included=bvals_included)
+    return [D, S]
+
+def fit_least_squares_ADC(bvalues, dw_data, bvals_included=None,
+                      bounds=([0, 0],[0.005, 2])):
+    """
+    This is an implementation of the conventional IVIM fit. It fits a single curve
+    :param bvalues: Array with the b-values
+    :param dw_data: Array with diffusion-weighted signal at different b-values
+    :param S0_output: Boolean determining whether to output (often a dummy) variable S0; default = True
+    :param fix_S0: Boolean determining whether to fix S0 to 1; default = False
+    :param bounds: Array with fit bounds ([Dtmin, Fpmin, Dpmin, S0min],[Dtmax, Fpmax, Dpmax, S0max]). Default: ([0.005, 0, 0, 0.8], [0.2, 0.7, 0.005, 1.2])
+    :return Dt: Array with D in each voxel
+    :return Fp: Array with f in each voxel
+    :return Dp: Array with Dp in each voxel
+    :return S0: Array with S0 in each voxel
+    """
+    try:
+        if bvals_included is not None:
+            sel = np.zeros_like(bvalues)
+            sel=sel==1
+            for index, b in enumerate(bvalues):
+                if b in bvals_included:
+                    sel[index]=True
+            dw_data=dw_data[sel]
+            bvalues=bvalues[sel]
+        params, _ = curve_fit(ADC, bvalues, dw_data, p0=[0.0015, 1], bounds=bounds)
+        # correct for the rescaling of parameters
+        D, S = params[0], params[1]
+        return D, S
+    except:
+        return 0, 0
+
 
 
 def fit_segmented_array(bvalues, dw_data, njobs=4, bounds=([0, 0, 0.005],[0.005, 0.7, 0.2]), cutoff=75):

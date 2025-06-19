@@ -112,8 +112,11 @@ class lsqfit:
         self.load_lsq = False # load the last results for lsq fit
         self.fitS0 = True # indicates whether to fit S0 (True) or fix it to 1 in the least squares fit.
         self.jobs = 4 # number of parallel jobs. If set to 1, no parallel computing is used
+        self.bvalues_included=[50, 700] # for ADC fit
         if self.model == 'tri-exp':
             self.bounds = ([0, 0, 0, 0.008, 0, 0.06], [2.5, 0.008, 1, 0.08, 1, 5]) # F0', D0, F1', D1, F2', D2
+        elif self.model == 'ADC':
+            self.bounds = ([0, 0], [0.005, 2.5])  # Dt, Fp, Ds, S0
         else:
             self.bounds = ([0.0003, 0, 0.005, 0.5], [0.005, 0.7, 0.3, 2.5])  # Dt, Fp, Ds, S0
 
